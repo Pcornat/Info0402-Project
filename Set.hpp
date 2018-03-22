@@ -5,6 +5,7 @@
  * Aller, c'est partiiii :D
  */
 class set {
+private:
 
 };
 
