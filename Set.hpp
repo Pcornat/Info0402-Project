@@ -27,6 +27,7 @@ private:
 	} node;
 
 public:
+	typedef node* iterator; //Eest-ce bon ? :/
 };
 
 
