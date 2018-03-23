@@ -117,6 +117,13 @@ public:
 	reference find(const key_type& key);
 
 	/**
+	 * Implémentation pas sûre, notamment en utilisant le comparateur (key_comp)
+	 * @param key
+	 * @return
+	 */
+	bool insert(const value_type& value);
+
+	/**
 	 * Assignation par copie.
 	 * @param x objet à copier.
 	 * @return l'objet copié
@@ -227,6 +234,33 @@ reference set<T, Compare>::find(const key_type& key) {
 			x = droit(x);
 	}
 	return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
+}
+
+template<class T, class Compare>
+bool set<T, Compare>::insert(const value_type& value) {
+	if (find(value) != nullptr) {
+		return false;
+	}
+	node* y = nullptr, * x = racine, * z = new node;
+	z->key = z->value = value;
+	z->parent = z->droit = z->gauche = nullptr;
+	while (x != nullptr) {
+		y = x;
+		if (key_comp(z->key, x->key))
+			x = gauche(x);
+		else
+			x = droit(x);
+	}
+	z->parent = y;
+	if (y == nullptr)
+		racine = z;
+	else {
+		if (key_comp(z->key, y->key))
+			y->gauche = z;
+		else
+			y->droit = z;
+	}
+	return true;
 }
 
 
