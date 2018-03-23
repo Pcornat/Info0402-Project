@@ -31,14 +31,14 @@ public:
 	typedef size_t size_type;
 private:
 	/**
-	 * Structure de nœud pour l'arbre (en interne pour éviter de s'en servir en dehors de la classe)
+	 * Structure de nœud pour l'arbre binaire de recherche (en interne pour éviter de s'en servir en dehors de la classe)
 	 */
 	typedef struct node_t {
 		key_type key;
 		value_type value;
-		struct node_t* parent;
-		struct node_t* gauche;
-		struct node_t* droit;
+		struct node_t* parent = nullptr;
+		struct node_t* gauche = nullptr;
+		struct node_t* droit = nullptr;
 	} node;
 
 	/**
@@ -110,6 +110,13 @@ public:
 	bool empty() const noexcept;
 
 	/**
+	 * Méthode permettant de rechercher un élément dans le set.
+	 * @param key clé à trouver.
+	 * @return normalement retourne un itérateur sur l'élément
+	 */
+	reference find(const key_type& key);
+
+	/**
 	 * Assignation par copie.
 	 * @param x objet à copier.
 	 * @return l'objet copié
@@ -135,13 +142,13 @@ template<class T, class Compare>
 set<T, Compare>::set() : size(0), racine(nullptr) {}
 
 template<class T, class Compare>
-set<T, Compare>::set(const Compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
+set<T, Compare>::set(const key_compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
 
 }
 
 template<class T, class Compare>
-set<T, Compare>::set(initializer_list<value_type> il, const Compare& comp) : size(il.size()), key_comp(comp),
-																			 value_comp(comp) {
+set<T, Compare>::set(initializer_list<value_type> il, const key_compare& comp) : size(il.size()), key_comp(comp),
+																				 value_comp(comp) {
 
 }
 
@@ -208,6 +215,18 @@ set::node* set<T, Compare>::droit(const set::node* n) {
 template<class T, class Compare>
 bool set<T, Compare>::empty() const noexcept {
 	return (size == 0);
+}
+
+template<class T, class Compare>
+reference set<T, Compare>::find(const key_type& key) {
+	node* x = racine;
+	while (x != nullptr && key != x->key) {
+		if (key_comp(key, x->key))
+			x = gauche(x);
+		else
+			x = droit(x);
+	}
+	return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
 }
 
 
