@@ -7,28 +7,30 @@
 using namespace std;
 
 /**
- * Construction d'abord sans template, test ? go template : debug.
- * Implémentation par un arbre binaire équilibré (implémentation officielle dans g++ : utilise arbre rouge-noir, pas
+ * Implémentation par un arbre binaire équilibré (implémentation officielle du GNU : utilise arbre rouge-noir, pas
  * obligatoire ici)
  * @authors Florent Denef et Thomas Ducrot
- * @tparam T type de donnée présent dans set
+ * @tparam Key type de donnée présent dans set
  * @tparam Compare fonctor de comparaison
  * @version 0.1
  */
-template<class T, class Compare=less<T>>
+template<class Key, class Compare=less<Key>>
 class set {
 public:
 	// Tous les membres de la classe.
-	typedef T key_type;
-	typedef T value_type;
+	typedef Key key_type;
+	typedef Key value_type;
 	typedef Compare key_compare;
 	typedef Compare value_compare;
-	typedef T* pointer;
-	typedef const T* const_pointer;
+	typedef Key* pointer;
+	typedef const Key* const_pointer;
 	typedef value_type& reference;
 	typedef const value_type& const_reference;
-	//difference_type
+	typedef ptrdiff_t difference_type;
 	typedef size_t size_type;
+
+	key_compare key_comp;
+	value_compare value_comp;
 private:
 	/**
 	 * Structure de nœud pour l'arbre binaire de recherche (en interne pour éviter de s'en servir en dehors de la classe)
@@ -63,9 +65,7 @@ private:
 	node* droit(const node* n);
 
 	node* racine;
-	size_type size{};
-	key_compare key_comp;
-	value_compare value_comp;
+	size_type size;
 
 public:
 	/**
@@ -143,46 +143,48 @@ public:
 	 * @return l'objet créé par la liste.
 	 */
 	set& operator=(initializer_list<value_type> list);
+
+	bool operator==(const set<Key, Compare>& lhs, const set<Key, Compare>& rhs);
 };
 
-template<class T, class Compare>
-set<T, Compare>::set() : size(0), racine(nullptr) {}
+template<class Key, class Compare>
+set<Key, Compare>::set() : size(0), racine(nullptr) {}
 
-template<class T, class Compare>
-set<T, Compare>::set(const key_compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
-
-}
-
-template<class T, class Compare>
-set<T, Compare>::set(initializer_list<value_type> il, const key_compare& comp) : size(il.size()), key_comp(comp),
-																				 value_comp(comp) {
+template<class Key, class Compare>
+set<Key, Compare>::set(const key_compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
 
 }
 
-template<class T, class Compare>
-set<T, Compare>::set(set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
-										 value_comp(s.value_comp) {
+template<class Key, class Compare>
+set<Key, Compare>::set(initializer_list<value_type> il, const key_compare& comp) : size(il.size()), key_comp(comp),
+																				   value_comp(comp) {
+
+}
+
+template<class Key, class Compare>
+set<Key, Compare>::set(set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
+										   value_comp(s.value_comp) {
 	s.size = 0;
 	s.racine = nullptr;
 	key_comp = nullptr;
 	value_comp = nullptr;
 }
 
-template<class T, class Compare>
-set<T, Compare>::set(const set& s) {
+template<class Key, class Compare>
+set<Key, Compare>::set(const set& s) {
 
 }
 
-template<class T, class Compare>
-set& set<T, Compare>::operator=(const set& x) {
+template<class Key, class Compare>
+set& set<Key, Compare>::operator=(const set& x) {
 	if (this != &x) {
 
 	}
 	return *this;
 }
 
-template<class T, class Compare>
-set& set<T, Compare>::operator=(set&& x) noexcept {
+template<class Key, class Compare>
+set& set<Key, Compare>::operator=(set&& x) noexcept {
 	if (this != &x) {
 		size = x.size;
 		racine = x.racine;
@@ -194,38 +196,38 @@ set& set<T, Compare>::operator=(set&& x) noexcept {
 	return *this;
 }
 
-template<class T, class Compare>
-set& set<T, Compare>::operator=(initializer_list<value_type> list) {
+template<class Key, class Compare>
+set& set<Key, Compare>::operator=(initializer_list<value_type> list) {
 	return *this;
 }
 
-template<class T, class Compare>
-set<T, Compare>::~set() {
+template<class Key, class Compare>
+set<Key, Compare>::~set() {
 
 }
 
-template<class T, class Compare>
-set::node* set<T, Compare>::parent(const set::node* n) {
+template<class Key, class Compare>
+set::node* set<Key, Compare>::parent(const set::node* n) {
 	return n->parent;
 }
 
-template<class T, class Compare>
-set::node* set<T, Compare>::gauche(const set::node* n) {
+template<class Key, class Compare>
+set::node* set<Key, Compare>::gauche(const set::node* n) {
 	return n->gauche;
 }
 
-template<class T, class Compare>
-set::node* set<T, Compare>::droit(const set::node* n) {
+template<class Key, class Compare>
+set::node* set<Key, Compare>::droit(const set::node* n) {
 	return n->droit;
 }
 
-template<class T, class Compare>
-bool set<T, Compare>::empty() const noexcept {
+template<class Key, class Compare>
+bool set<Key, Compare>::empty() const noexcept {
 	return (size == 0);
 }
 
-template<class T, class Compare>
-reference set<T, Compare>::find(const key_type& key) {
+template<class Key, class Compare>
+reference set<Key, Compare>::find(const key_type& key) {
 	node* x = racine;
 	while (x != nullptr && key != x->key) {
 		if (key_comp(key, x->key))
@@ -236,8 +238,8 @@ reference set<T, Compare>::find(const key_type& key) {
 	return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
 }
 
-template<class T, class Compare>
-bool set<T, Compare>::insert(const value_type& value) {
+template<class Key, class Compare>
+bool set<Key, Compare>::insert(const value_type& value) {
 	if (find(value) != nullptr) {
 		return false;
 	}
@@ -260,6 +262,15 @@ bool set<T, Compare>::insert(const value_type& value) {
 		else
 			y->droit = z;
 	}
+	++size;
+	return true;
+}
+
+template<class Key, class Compare>
+bool set<Key, Compare>::operator==(const set<Key, Compare>& lhs, const set<Key, Compare>& rhs) {
+	if (lhs.size != rhs.size)
+		return false;
+
 	return true;
 }
 
