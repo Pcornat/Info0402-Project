@@ -1,23 +1,30 @@
 #ifndef PROJET_SET_HPP
 #define PROJET_SET_HPP
 
+#define CATCH_CONFIG_MAIN
+
+#include <catch/catch.hpp>
 #include <functional>
 #include <initializer_list>
+#include "SetIter.hpp"
 
 using namespace std;
 
 /**
  * Implémentation par un arbre binaire équilibré (implémentation officielle du GNU : utilise arbre rouge-noir, pas
  * obligatoire ici)
- * @authors Florent Denef et Thomas Ducrot
+ * @authors Florent Denef, Thomas Ducrot
  * @tparam Key type de donnée présent dans set
  * @tparam Compare fonctor de comparaison
  * @version 0.1
  */
 template<class Key, class Compare=less<Key>>
-class set {
+class Set {
+	friend class SetIter<Key, Compare>;
+
 public:
 	// Tous les membres de la classe.
+	typedef SetIter<Key, Compare> iterator;
 	typedef Key key_type;
 	typedef Key value_type;
 	typedef Compare key_compare;
@@ -71,37 +78,37 @@ public:
 	/**
 	 * Crée un set vide
 	 */
-	set();
+	Set();
 
 	/**
 	 * Crée un set vide avec le comp correspondant.
 	 * @param comp
 	 */
-	explicit set(const key_compare& comp = key_compare());
+	explicit Set(const key_compare& comp = key_compare());
 
 	/**
 	 * Constructeur par copie
 	 * @param s set à copier
 	 */
-	set(const set& s);
+	Set(const Set& s);
 
 	/**
 	 * Constructeur par déplacement
 	 * @param s set à déplacer (voler) les données
 	 */
-	set(set&& s) noexcept;
+	Set(Set&& s) noexcept;
 
 	/**
 	 * Constructeur par liste d'initialisation
 	 * @param [in] il liste d'initialisation
 	 * @param [in]comp comparateur
 	 */
-	set(initializer_list<value_type> il, const key_compare& comp = key_compare());
+	Set(initializer_list<value_type> il, const key_compare& comp = key_compare());
 
 	/**
 	 * Détruis l'objet.
 	 */
-	~set();
+	~Set();
 
 	/**
 	 * Vérifie si le conteneur est vide.
@@ -128,41 +135,41 @@ public:
 	 * @param x objet à copier.
 	 * @return l'objet copié
 	 */
-	set& operator=(const set& x);
+	Set& operator=(const Set& x);
 
 	/**
 	 * Assignation par déplacement.
 	 * @param x objet dont on déplace les ressources.
 	 * @return l'objet nouvellement créé.
 	 */
-	set& operator=(set&& x) noexcept;
+	Set& operator=(Set&& x) noexcept;
 
 	/**
 	 * Assignation par liste.
 	 * @param list liste à assigner
 	 * @return l'objet créé par la liste.
 	 */
-	set& operator=(initializer_list<value_type> list);
+	Set& operator=(initializer_list<value_type> list);
 
-	bool operator==(const set<Key, Compare>& lhs, const set<Key, Compare>& rhs);
+	bool operator==(const Set<Key, Compare>& lhs, const Set<Key, Compare>& rhs);
 };
 
 template<class Key, class Compare>
-set<Key, Compare>::set() : size(0), racine(nullptr) {}
+Set<Key, Compare>::Set() : size(0), racine(nullptr) {}
 
 template<class Key, class Compare>
-set<Key, Compare>::set(const key_compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
+Set<Key, Compare>::Set(const key_compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
 
 }
 
 template<class Key, class Compare>
-set<Key, Compare>::set(initializer_list<value_type> il, const key_compare& comp) : size(il.size()), key_comp(comp),
+Set<Key, Compare>::Set(initializer_list<value_type> il, const key_compare& comp) : size(il.size()), key_comp(comp),
 																				   value_comp(comp) {
 
 }
 
 template<class Key, class Compare>
-set<Key, Compare>::set(set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
+Set<Key, Compare>::Set(Set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
 										   value_comp(s.value_comp) {
 	s.size = 0;
 	s.racine = nullptr;
@@ -171,12 +178,12 @@ set<Key, Compare>::set(set&& s) noexcept : size(s.size), racine(s.racine), key_c
 }
 
 template<class Key, class Compare>
-set<Key, Compare>::set(const set& s) {
+Set<Key, Compare>::Set(const Set& s) {
 
 }
 
 template<class Key, class Compare>
-set& set<Key, Compare>::operator=(const set& x) {
+Set& Set<Key, Compare>::operator=(const Set& x) {
 	if (this != &x) {
 
 	}
@@ -184,7 +191,7 @@ set& set<Key, Compare>::operator=(const set& x) {
 }
 
 template<class Key, class Compare>
-set& set<Key, Compare>::operator=(set&& x) noexcept {
+Set& Set<Key, Compare>::operator=(Set&& x) noexcept {
 	if (this != &x) {
 		size = x.size;
 		racine = x.racine;
@@ -197,37 +204,37 @@ set& set<Key, Compare>::operator=(set&& x) noexcept {
 }
 
 template<class Key, class Compare>
-set& set<Key, Compare>::operator=(initializer_list<value_type> list) {
+Set& Set<Key, Compare>::operator=(initializer_list<value_type> list) {
 	return *this;
 }
 
 template<class Key, class Compare>
-set<Key, Compare>::~set() {
+Set<Key, Compare>::~Set() {
 
 }
 
 template<class Key, class Compare>
-set::node* set<Key, Compare>::parent(const set::node* n) {
+Set::node* Set<Key, Compare>::parent(const Set::node* n) {
 	return n->parent;
 }
 
 template<class Key, class Compare>
-set::node* set<Key, Compare>::gauche(const set::node* n) {
+Set::node* Set<Key, Compare>::gauche(const Set::node* n) {
 	return n->gauche;
 }
 
 template<class Key, class Compare>
-set::node* set<Key, Compare>::droit(const set::node* n) {
+Set::node* Set<Key, Compare>::droit(const Set::node* n) {
 	return n->droit;
 }
 
 template<class Key, class Compare>
-bool set<Key, Compare>::empty() const noexcept {
+bool Set<Key, Compare>::empty() const noexcept {
 	return (size == 0);
 }
 
 template<class Key, class Compare>
-reference set<Key, Compare>::find(const key_type& key) {
+reference Set<Key, Compare>::find(const key_type& key) {
 	node* x = racine;
 	while (x != nullptr && key != x->key) {
 		if (key_comp(key, x->key))
@@ -239,7 +246,7 @@ reference set<Key, Compare>::find(const key_type& key) {
 }
 
 template<class Key, class Compare>
-bool set<Key, Compare>::insert(const value_type& value) {
+bool Set<Key, Compare>::insert(const value_type& value) {
 	if (find(value) != nullptr) {
 		return false;
 	}
@@ -267,7 +274,7 @@ bool set<Key, Compare>::insert(const value_type& value) {
 }
 
 template<class Key, class Compare>
-bool set<Key, Compare>::operator==(const set<Key, Compare>& lhs, const set<Key, Compare>& rhs) {
+bool Set<Key, Compare>::operator==(const Set<Key, Compare>& lhs, const Set<Key, Compare>& rhs) {
 	if (lhs.size != rhs.size)
 		return false;
 

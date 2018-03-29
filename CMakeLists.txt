@@ -3,4 +3,4 @@ project(Projet)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(Projet main.cpp Set.hpp)
+add_executable(Projet main.cpp Set.hpp SetIter.hpp)
