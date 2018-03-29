@@ -1,14 +1,13 @@
 #ifndef PROJET_SET_HPP
 #define PROJET_SET_HPP
 
-#define CATCH_CONFIG_MAIN
-
-#include <catch/catch.hpp>
 #include <functional>
 #include <initializer_list>
-#include "SetIter.hpp"
 
 using namespace std;
+
+template<class Key, class Compare=less<Key>>
+class SetIter;
 
 /**
  * Implémentation par un arbre binaire équilibré (implémentation officielle du GNU : utilise arbre rouge-noir, pas
@@ -39,15 +38,23 @@ public:
 	key_compare key_comp;
 	value_compare value_comp;
 private:
+	typedef enum {
+		noir, rouge
+	} color;
 	/**
 	 * Structure de nœud pour l'arbre binaire de recherche (en interne pour éviter de s'en servir en dehors de la classe)
 	 */
 	typedef struct node_t {
 		key_type key;
 		value_type value;
+		color couleur;
 		struct node_t* parent = nullptr;
 		struct node_t* gauche = nullptr;
 		struct node_t* droit = nullptr;
+
+		explicit node_t(key_type key, struct node_t* parent = nullptr, color couleur = noir) : key(key),
+																							   couleur(couleur),
+																							   parent(parent) {}
 	} node;
 
 	/**
@@ -55,21 +62,27 @@ private:
 	 * @param n le nœud courant
 	 * @return pointeur sur le nœud correspondant au parent
 	 */
-	node* parent(const node* n);
+	node* parent(const node* n) {
+		return n->parent;
+	}
 
 	/**
 	 * Donne le fils gauche du nœud courant
 	 * @param n le nœud courant
 	 * @return pointeur sur le nœud correspondant au fils gauche
 	 */
-	node* gauche(const node* n);
+	node* gauche(const node* n) {
+		return n->gauche;
+	}
 
 	/**
 	 * Donne le fils droit du nœud courant
 	 * @param n le nœud courant
 	 * @return pointeur sur le nœud correspondant au fils droit
 	 */
-	node* droit(const node* n);
+	node* droit(const node* n) {
+		return n->droit;
+	}
 
 	node* racine;
 	size_type size;
@@ -78,208 +91,188 @@ public:
 	/**
 	 * Crée un set vide
 	 */
-	Set();
+	Set() : size(0), racine(nullptr) {}
 
 	/**
 	 * Crée un set vide avec le comp correspondant.
 	 * @param comp
 	 */
-	explicit Set(const key_compare& comp = key_compare());
+	explicit Set(const key_compare& comp = key_compare()) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
+
+	}
 
 	/**
 	 * Constructeur par copie
 	 * @param s set à copier
 	 */
-	Set(const Set& s);
+	Set(const Set& s) : size(s.size) {
+
+	}
 
 	/**
 	 * Constructeur par déplacement
 	 * @param s set à déplacer (voler) les données
 	 */
-	Set(Set&& s) noexcept;
+	Set(Set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
+							value_comp(s.value_comp) {
+		s.size = 0;
+		s.racine = nullptr;
+		key_comp = nullptr;
+		value_comp = nullptr;
+	}
 
 	/**
 	 * Constructeur par liste d'initialisation
 	 * @param [in] il liste d'initialisation
 	 * @param [in]comp comparateur
 	 */
-	Set(initializer_list<value_type> il, const key_compare& comp = key_compare());
+	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : size(il.size()), key_comp(comp),
+																					value_comp(comp) {
+
+	}
 
 	/**
 	 * Détruis l'objet.
 	 */
-	~Set();
+	~Set() noexcept = default;
+
+
+	iterator begin() {
+		return iterator(*this, size, racine);
+	}
 
 	/**
 	 * Vérifie si le conteneur est vide.
 	 * @return true si il est vide.
 	 */
-	bool empty() const noexcept;
+	bool empty() const noexcept {
+		return (size == 0);
+	}
 
 	/**
 	 * Méthode permettant de rechercher un élément dans le set.
 	 * @param key clé à trouver.
 	 * @return normalement retourne un itérateur sur l'élément
 	 */
-	reference find(const key_type& key);
+	iterator find(const key_type& key) {
+		node* x = racine;
+		while (x != nullptr && key != x->key) {
+			if (key_comp(key, x->key))
+				x = gauche(x);
+			else
+				x = droit(x);
+		}
+		return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
+	}
 
 	/**
 	 * Implémentation pas sûre, notamment en utilisant le comparateur (key_comp)
 	 * @param key
 	 * @return
 	 */
-	bool insert(const value_type& value);
+	bool insert(const value_type& value) {
+		if (find(value).currentNode != nullptr) {
+			return false;
+		}
+		node* y = nullptr, * x = racine, * z = new node;
+		z->key = z->value = value;
+		z->parent = z->droit = z->gauche = nullptr;
+		while (x != nullptr) {
+			y = x;
+			if (key_comp(z->key, x->key))
+				x = gauche(x);
+			else
+				x = droit(x);
+		}
+		z->parent = y;
+		if (y == nullptr)
+			racine = z;
+		else {
+			if (key_comp(z->key, y->key))
+				y->gauche = z;
+			else
+				y->droit = z;
+		}
+		++size;
+		return true;
+	}
 
 	/**
 	 * Assignation par copie.
 	 * @param x objet à copier.
 	 * @return l'objet copié
 	 */
-	Set& operator=(const Set& x);
+	Set& operator=(const Set& x) {
+		if (this != &x) {
+
+		}
+		return *this;
+	}
 
 	/**
 	 * Assignation par déplacement.
 	 * @param x objet dont on déplace les ressources.
 	 * @return l'objet nouvellement créé.
 	 */
-	Set& operator=(Set&& x) noexcept;
+	Set& operator=(Set&& x) noexcept {
+		if (this != &x) {
+			size = x.size;
+			racine = x.racine;
+			key_comp = x.key_comp;
+			value_comp = x.value_comp;
+			x.value_comp = x.key_comp = x.racine = nullptr;
+			x.size = 0;
+		}
+		return *this;
+	}
 
 	/**
 	 * Assignation par liste.
 	 * @param list liste à assigner
 	 * @return l'objet créé par la liste.
 	 */
-	Set& operator=(initializer_list<value_type> list);
+	Set& operator=(initializer_list<value_type> list) {
+		return *this;
+	}
 
-	bool operator==(const Set<Key, Compare>& lhs, const Set<Key, Compare>& rhs);
+	bool operator==(const Set<Key, Compare>& rhs) {
+		if (this->size != rhs.size)
+			return false;
+
+		return true;
+	}
 };
 
-template<class Key, class Compare>
-Set<Key, Compare>::Set() : size(0), racine(nullptr) {}
+/**
+ * Itérateur de Set.
+ * @authors Florent Denef, Thomas Ducrot
+ * @tparam Key type de clé
+ * @tparam Compare foncteur de comparaison
+ */
+template<class Key, class Compare=less<Key>>
+class SetIter {
+	friend class Set<Key, Compare>;
 
-template<class Key, class Compare>
-Set<Key, Compare>::Set(const key_compare& comp) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
+private:
+	Set<Key, Compare>& myset;
+	size_t size;
+	Set<Key, Compare>::node* currentNode;
+public:
+	SetIter(Set<Key, Compare>& myset, size_t size, Set<Key, Compare>::node* noeud) : myset(myset), size(size),
+																					 currentNode(noeud) {}
 
-}
-
-template<class Key, class Compare>
-Set<Key, Compare>::Set(initializer_list<value_type> il, const key_compare& comp) : size(il.size()), key_comp(comp),
-																				   value_comp(comp) {
-
-}
-
-template<class Key, class Compare>
-Set<Key, Compare>::Set(Set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
-										   value_comp(s.value_comp) {
-	s.size = 0;
-	s.racine = nullptr;
-	key_comp = nullptr;
-	value_comp = nullptr;
-}
-
-template<class Key, class Compare>
-Set<Key, Compare>::Set(const Set& s) {
-
-}
-
-template<class Key, class Compare>
-Set& Set<Key, Compare>::operator=(const Set& x) {
-	if (this != &x) {
-
+	bool operator==(const SetIter& rhs) const {
+		return myset == rhs.myset &&
+			   size == rhs.size;
 	}
-	return *this;
-}
 
-template<class Key, class Compare>
-Set& Set<Key, Compare>::operator=(Set&& x) noexcept {
-	if (this != &x) {
-		size = x.size;
-		racine = x.racine;
-		key_comp = x.key_comp;
-		value_comp = x.value_comp;
-		x.value_comp = x.key_comp = x.racine = nullptr;
-		x.size = 0;
+	bool operator!=(const SetIter& rhs) const {
+		return !(rhs == *this);
 	}
-	return *this;
-}
 
-template<class Key, class Compare>
-Set& Set<Key, Compare>::operator=(initializer_list<value_type> list) {
-	return *this;
-}
-
-template<class Key, class Compare>
-Set<Key, Compare>::~Set() {
-
-}
-
-template<class Key, class Compare>
-Set::node* Set<Key, Compare>::parent(const Set::node* n) {
-	return n->parent;
-}
-
-template<class Key, class Compare>
-Set::node* Set<Key, Compare>::gauche(const Set::node* n) {
-	return n->gauche;
-}
-
-template<class Key, class Compare>
-Set::node* Set<Key, Compare>::droit(const Set::node* n) {
-	return n->droit;
-}
-
-template<class Key, class Compare>
-bool Set<Key, Compare>::empty() const noexcept {
-	return (size == 0);
-}
-
-template<class Key, class Compare>
-reference Set<Key, Compare>::find(const key_type& key) {
-	node* x = racine;
-	while (x != nullptr && key != x->key) {
-		if (key_comp(key, x->key))
-			x = gauche(x);
-		else
-			x = droit(x);
-	}
-	return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
-}
-
-template<class Key, class Compare>
-bool Set<Key, Compare>::insert(const value_type& value) {
-	if (find(value) != nullptr) {
-		return false;
-	}
-	node* y = nullptr, * x = racine, * z = new node;
-	z->key = z->value = value;
-	z->parent = z->droit = z->gauche = nullptr;
-	while (x != nullptr) {
-		y = x;
-		if (key_comp(z->key, x->key))
-			x = gauche(x);
-		else
-			x = droit(x);
-	}
-	z->parent = y;
-	if (y == nullptr)
-		racine = z;
-	else {
-		if (key_comp(z->key, y->key))
-			y->gauche = z;
-		else
-			y->droit = z;
-	}
-	++size;
-	return true;
-}
-
-template<class Key, class Compare>
-bool Set<Key, Compare>::operator==(const Set<Key, Compare>& lhs, const Set<Key, Compare>& rhs) {
-	if (lhs.size != rhs.size)
-		return false;
-
-	return true;
-}
-
+	Set<Key, Compare>::value_type& operator*() const {
+		return <#initializer#>;
+	};
+};
 
 #endif //PROJET_SET_HPP
