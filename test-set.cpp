@@ -1,4 +1,4 @@
-#include <catch/catch.hpp>
+#include "test-set.hpp"
 
 #include "Set.hpp"
 

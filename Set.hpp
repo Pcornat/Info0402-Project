@@ -1,6 +1,7 @@
 #ifndef PROJET_SET_HPP
 #define PROJET_SET_HPP
 
+#include "test-set.hpp"
 #include <functional>
 #include <initializer_list>
 
@@ -19,9 +20,10 @@ class SetIter;
  */
 template<class Key, class Compare=less<Key>>
 class Set {
-	friend class SetIter<Key, Compare>;
 
 public:
+	friend class SetIter<Key, Compare>;
+
 	// Tous les membres de la classe.
 	typedef SetIter<Key, Compare> iterator;
 	typedef Key key_type;
@@ -55,34 +57,39 @@ private:
 		explicit node_t(key_type key, struct node_t* parent = nullptr, color couleur = noir) : key(key),
 																							   couleur(couleur),
 																							   parent(parent) {}
+
+		/**
+		 * Donne le parent du nœud courant
+		 * @return pointeur sur le nœud correspondant au parent
+		 */
+		struct node_t* pere() {
+			return this->parent;
+		}
+
+		/**
+		 * Donne le fils droit du nœud courant
+		 * @return pointeur sur le nœud correspondant au fils droit
+		 */
+		struct node_t* filsDroit() {
+			return this->droit;
+		}
+
+		/**
+		 * Donne le fils gauche du nœud courant
+		 * @return pointeur sur le nœud correspondant au fils gauche
+		 */
+		struct node_t* filsGauche() {
+			return this->gauche;
+		}
+
+		struct node_t* grandParent() {
+			return this->parent->parent;
+		}
+
+		struct node_t* oncle() {
+
+		}
 	} node;
-
-	/**
-	 * Donne le parent du nœud courant
-	 * @param n le nœud courant
-	 * @return pointeur sur le nœud correspondant au parent
-	 */
-	node* parent(const node* n) {
-		return n->parent;
-	}
-
-	/**
-	 * Donne le fils gauche du nœud courant
-	 * @param n le nœud courant
-	 * @return pointeur sur le nœud correspondant au fils gauche
-	 */
-	node* gauche(const node* n) {
-		return n->gauche;
-	}
-
-	/**
-	 * Donne le fils droit du nœud courant
-	 * @param n le nœud courant
-	 * @return pointeur sur le nœud correspondant au fils droit
-	 */
-	node* droit(const node* n) {
-		return n->droit;
-	}
 
 	node* racine;
 	size_type size;
@@ -98,6 +105,20 @@ public:
 	 * @param comp
 	 */
 	explicit Set(const key_compare& comp = key_compare()) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
+
+	}
+
+	/**
+	 * Construit un set avec le nombre d'élément compris entre [first, last) avec chaque élément construit emplace
+	 * correspondant à son élement dans [first, last)
+	 * @tparam InputIterator
+	 * @param first
+	 * @param last
+	 * @param comp
+	 */
+	template<class InputIterator>
+	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : size(0), key_comp(comp),
+																					  value_comp(comp) {
 
 	}
 
@@ -136,8 +157,11 @@ public:
 	 */
 	~Set() noexcept = default;
 
-
-	iterator begin() {
+	/**
+	 * Itérateur de début du Set.
+	 * @return retourne un itérateur sur le début du Set.
+	 */
+	iterator begin() noexcept {
 		return iterator(*this, size, racine);
 	}
 
@@ -158,9 +182,9 @@ public:
 		node* x = racine;
 		while (x != nullptr && key != x->key) {
 			if (key_comp(key, x->key))
-				x = gauche(x);
+				x = x->filsGauche();
 			else
-				x = droit(x);
+				x = x->filsDroit();
 		}
 		return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
 	}
@@ -168,21 +192,19 @@ public:
 	/**
 	 * Implémentation pas sûre, notamment en utilisant le comparateur (key_comp)
 	 * @param key
-	 * @return
+	 * @return true : réussite de l'insertion.
 	 */
 	bool insert(const value_type& value) {
 		if (find(value).currentNode != nullptr) {
 			return false;
 		}
-		node* y = nullptr, * x = racine, * z = new node;
-		z->key = z->value = value;
-		z->parent = z->droit = z->gauche = nullptr;
+		node* y = nullptr, * x = racine, * z = new node(value);
 		while (x != nullptr) {
 			y = x;
 			if (key_comp(z->key, x->key))
-				x = gauche(x);
+				x = x->filsGauche();
 			else
-				x = droit(x);
+				x = x->filsDroit();
 		}
 		z->parent = y;
 		if (y == nullptr)
@@ -235,6 +257,12 @@ public:
 		return *this;
 	}
 
+	/**
+	 * Opérateur de comparaison. La comparaison est valide uniquement si les deux Set possèdent les mêmes valeurs au
+	 * même endroit de l'arbre.
+	 * @param rhs Set à comparer avec *this
+	 * @return true : les deux sont égaux
+	 */
 	bool operator==(const Set<Key, Compare>& rhs) {
 		if (this->size != rhs.size)
 			return false;
@@ -249,16 +277,22 @@ public:
  * @tparam Key type de clé
  * @tparam Compare foncteur de comparaison
  */
-template<class Key, class Compare=less<Key>>
+template<class Key, class Compare>
 class SetIter {
 	friend class Set<Key, Compare>;
 
 private:
 	Set<Key, Compare>& myset;
 	size_t size;
-	Set<Key, Compare>::node* currentNode;
+	typename Set<Key, Compare>::node* currentNode;
 public:
-	SetIter(Set<Key, Compare>& myset, size_t size, Set<Key, Compare>::node* noeud) : myset(myset), size(size),
+	/**
+	 * Constructeur de l'itérateur de Set.
+	 * @param myset
+	 * @param size
+	 * @param noeud
+	 */
+	SetIter(Set<Key, Compare>& myset, size_t size, typename Set<Key, Compare>::node* noeud) : myset(myset), size(size),
 																					 currentNode(noeud) {}
 
 	bool operator==(const SetIter& rhs) const {
@@ -270,8 +304,8 @@ public:
 		return !(rhs == *this);
 	}
 
-	Set<Key, Compare>::value_type& operator*() const {
-		return <#initializer#>;
+	typename Set<Key, Compare>::value_type& operator*() const {
+		return currentNode->value;
 	};
 };
 
