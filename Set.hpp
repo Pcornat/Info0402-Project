@@ -162,7 +162,15 @@ public:
 	 * @return retourne un itérateur sur le début du Set.
 	 */
 	iterator begin() noexcept {
-		return iterator(*this, size, racine);
+		return iterator(*this);
+	}
+
+	/**
+	 * Itérateur de fin du Set.
+	 * @return itérateur sur le dernier nœud.
+	 */
+	iterator end() noexcept {
+		return iterator(*this, racine); //Normalement renverra l'itérateur sur le dernier noeud.
 	}
 
 	/**
@@ -171,6 +179,14 @@ public:
 	 */
 	bool empty() const noexcept {
 		return (size == 0);
+	}
+
+	/**
+	 * Getter de size
+	 * @return une référence constante sur la taille de l'objet.
+	 */
+	size_t& getSize() const noexcept {
+		return this->size;
 	}
 
 	/**
@@ -287,17 +303,33 @@ private:
 	typename Set<Key, Compare>::node* currentNode;
 public:
 	/**
+	 * Constructeur par "défaut"
+	 * @param myset
+	 */
+	SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine), size(myset.getSize()) {}
+
+	/**
 	 * Constructeur de l'itérateur de Set.
 	 * @param myset
-	 * @param size
 	 * @param noeud
 	 */
-	SetIter(Set<Key, Compare>& myset, size_t size, typename Set<Key, Compare>::node* noeud) : myset(myset), size(size),
-																					 currentNode(noeud) {}
+	SetIter(Set<Key, Compare>& myset, typename Set<Key, Compare>::node* noeud) : myset(myset), size(myset.getSize()),
+																				 currentNode(noeud) {
+	}
 
+	/**
+	 * Destructeur d'itérateur de Set.
+	 */
+	virtual ~SetIter() {
+	}
+
+	/**
+	 * Opérateur de comparaison d'itérateur.
+	 * @param rhs
+	 * @return
+	 */
 	bool operator==(const SetIter& rhs) const {
-		return myset == rhs.myset &&
-			   size == rhs.size;
+		return this->currentNode == rhs.currentNode;
 	}
 
 	bool operator!=(const SetIter& rhs) const {
