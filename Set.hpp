@@ -50,19 +50,36 @@ private:
 		key_type key;
 		value_type value;
 		color couleur;
-		struct node_t* parent = nullptr;
-		struct node_t* gauche = nullptr;
-		struct node_t* droit = nullptr;
+		unique_ptr<struct node_t> parent = nullptr;
+		unique_ptr<struct node_t> gauche = nullptr;
+		unique_ptr<struct node_t> droit = nullptr;
+
+		node_t() noexcept = default;
 
 		explicit node_t(key_type key, struct node_t* parent = nullptr, color couleur = noir) : key(key),
 																							   couleur(couleur),
-																							   parent(parent) {}
+																							   parent(parent) {
+		}
+
+		/**
+		 * Constructeur par copie du nœud.
+		 * @param n nœud à copier.
+		 */
+		node_t(const node_t& n) : key(n.key), value(n.value), couleur(n.couleur), parent(nullptr),
+								  gauche(nullptr),
+								  droit(nullptr) {
+		}
+
+		/**
+		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr.
+		 */
+		~node_t() noexcept = default;
 
 		/**
 		 * Donne le parent du nœud courant
 		 * @return pointeur sur le nœud correspondant au parent
 		 */
-		struct node_t* pere() {
+		unique_ptr<struct node_t>& pere() {
 			return this->parent;
 		}
 
@@ -70,7 +87,7 @@ private:
 		 * Donne le fils droit du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils droit
 		 */
-		struct node_t* filsDroit() {
+		unique_ptr<struct node_t>& filsDroit() {
 			return this->droit;
 		}
 
@@ -78,27 +95,39 @@ private:
 		 * Donne le fils gauche du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils gauche
 		 */
-		struct node_t* filsGauche() {
+		unique_ptr<struct node_t>& filsGauche() {
 			return this->gauche;
 		}
 
-		struct node_t* grandParent() {
+		/**
+		 * Permet d'avoir le grand-parent du nœud.
+		 * @return le grand-parent du nœud courant.
+		 */
+		unique_ptr<struct node_t>& grandParent() {
 			return this->parent->parent;
 		}
 
-		struct node_t* oncle() {
-
+		/**
+		 * Permet d'avoir l'oncle du nœud courant.
+		 * @return l'oncle du nœud courant.
+		 */
+		unique_ptr<struct node_t>& oncle() {
+			struct node_t* x = this->grandParent().get();
+			if (x->filsGauche() == this->pere())
+				return x->filsDroit();
+			else if (x->filsDroit() == this->pere())
+				return x->filsGauche();
 		}
 	} node;
 
-	node* racine;
+	unique_ptr<node> racine;
 	size_type size;
 
 public:
 	/**
 	 * Crée un set vide
 	 */
-	Set() : size(0), racine(nullptr) {}
+	Set() : size(0), racine() {}
 
 	/**
 	 * Crée un set vide avec le comp correspondant.
@@ -123,10 +152,10 @@ public:
 	}
 
 	/**
-	 * Constructeur par copie
-	 * @param s set à copier
+	 * Constructeur par copie.
+	 * @param s Set compatible à copier.
 	 */
-	Set(const Set& s) : size(s.size) {
+	Set(const Set<Key, Compare>& s) : size(s.getSize()), key_comp(s.key_comp), value_comp(value_comp) {
 
 	}
 
@@ -134,8 +163,8 @@ public:
 	 * Constructeur par déplacement
 	 * @param s set à déplacer (voler) les données
 	 */
-	Set(Set&& s) noexcept : size(s.size), racine(s.racine), key_comp(s.key_comp),
-							value_comp(s.value_comp) {
+	Set(Set<Key, Compare>&& s) noexcept : size(s.size), racine(move(s.racine)), key_comp(s.key_comp),
+										  value_comp(s.value_comp) {
 		s.size = 0;
 		s.racine = nullptr;
 		key_comp = nullptr;
@@ -170,7 +199,7 @@ public:
 	 * @return itérateur sur le dernier nœud.
 	 */
 	iterator end() noexcept {
-		return iterator(*this, racine); //Normalement renverra l'itérateur sur le dernier noeud.
+		return iterator(*this, racine.get()); //Normalement renverra l'itérateur sur le dernier noeud.
 	}
 
 	/**
@@ -195,12 +224,12 @@ public:
 	 * @return normalement retourne un itérateur sur l'élément
 	 */
 	iterator find(const key_type& key) {
-		node* x = racine;
+		node* x = racine.get();
 		while (x != nullptr && key != x->key) {
 			if (key_comp(key, x->key))
-				x = x->filsGauche();
+				x = x->filsGauche().get();
 			else
-				x = x->filsDroit();
+				x = x->filsDroit().get();
 		}
 		return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
 	}
@@ -214,13 +243,14 @@ public:
 		if (find(value).currentNode != nullptr) {
 			return false;
 		}
-		node* y = nullptr, * x = racine, * z = new node(value);
+		node* y = nullptr, * x = racine.get(), * z = new node(value);
 		while (x != nullptr) {
 			y = x;
 			if (key_comp(z->key, x->key))
-				x = x->filsGauche();
+				x = x->filsGauche().get();
 			else
-				x = x->filsDroit();
+				x = x->filsDroit().get();
+			x = x->filsDroit().get();
 		}
 		z->parent = y;
 		if (y == nullptr)
@@ -255,10 +285,10 @@ public:
 	Set& operator=(Set&& x) noexcept {
 		if (this != &x) {
 			size = x.size;
-			racine = x.racine;
+			racine = move(x.racine);
 			key_comp = x.key_comp;
 			value_comp = x.value_comp;
-			x.value_comp = x.key_comp = x.racine = nullptr;
+			x.value_comp = x.key_comp = nullptr;
 			x.size = 0;
 		}
 		return *this;
@@ -306,7 +336,7 @@ public:
 	 * Constructeur par "défaut"
 	 * @param myset
 	 */
-	SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine), size(myset.getSize()) {}
+	SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()), size(myset.getSize()) {}
 
 	/**
 	 * Constructeur de l'itérateur de Set.
