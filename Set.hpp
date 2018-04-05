@@ -52,7 +52,7 @@ private:
 		color couleur = noir;
 		unique_ptr<node_t> gauche = nullptr;
 		unique_ptr<node_t> droit = nullptr;
-		unique_ptr<node_t> parent = nullptr;
+		shared_ptr<node_t> parent = nullptr;
 
 		/**
 		 * Constructeur par défaut : unque_ptr à nullptr, couleur à noir et les autres à 0.
@@ -82,7 +82,7 @@ private:
 		 * Donne le parent du nœud courant
 		 * @return pointeur sur le nœud correspondant au parent
 		 */
-		unique_ptr<node_t>& pere() {
+		shared_ptr<node_t>& pere() {
 			return this->parent;
 		}
 
@@ -106,7 +106,7 @@ private:
 		 * Permet d'avoir le grand-parent du nœud.
 		 * @return le grand-parent du nœud courant.
 		 */
-		unique_ptr<node_t>& grandParent() {
+		shared_ptr<node_t>& grandParent() {
 			return this->parent->parent;
 		}
 
@@ -116,12 +116,40 @@ private:
 		 */
 		unique_ptr<node_t>& oncle() {
 			node_t* x = this->grandParent().get();
-			if (x->filsGauche() == this->pere())
+			if (x->filsGauche().get() == this->pere())
 				return x->filsDroit();
-			else if (x->filsDroit() == this->pere())
+			else if (x->filsDroit().get() == this->pere())
 				return x->filsGauche();
 		}
 	};
+
+	/**
+	 * Insertion récursive du nœud dans l'arbre.
+	 * @param root pointeur sur la racine courante du sous-arbre.
+	 * @param n nœud à insérer.
+	 */
+	void insertRecurse(unique_ptr<node>& root, node* n) {
+		// recursively descend the tree until a leaf is found
+		if (root != nullptr && n->key < root->key) {
+			if (root->gauche != nullptr) {
+				insertRecurse(root->gauche, n);
+				return;
+			} else
+				root->gauche = n;
+		} else if (root != nullptr) {
+			if (root->droit != nullptr) {
+				insertRecurse(root->droit, n);
+				return;
+			} else
+				root->droit = n;
+		}
+
+		// insert new node n
+		n->parent = root.get();
+		n->gauche = nullptr;
+		n->droit = nullptr;
+		n->couleur = rouge;
+	}
 
 	key_compare keyComp;
 	value_compare valueComp;
@@ -158,7 +186,7 @@ public:
 	 * Constructeur par copie.
 	 * @param s Set compatible à copier.
 	 */
-	Set(const Set<Key, Compare>& s) : size(s.getSize()), keyComp(s.keyComp), valueComp(valueComp) {
+	Set(const Set& s) : size(s.getSize()), keyComp(s.keyComp), valueComp(valueComp) {
 
 	}
 
@@ -166,8 +194,8 @@ public:
 	 * Constructeur par déplacement
 	 * @param s set à déplacer (voler) les données
 	 */
-	Set(Set<Key, Compare>&& s) noexcept : size(s.size), racine(move(s.racine)), key_compare(s.keyComp),
-										  valueComp(s.valueComp) {
+	Set(Set&& s) noexcept : size(s.size), racine(move(s.racine)), key_compare(s.keyComp),
+							valueComp(s.valueComp) {
 		s.size = 0;
 		s.racine = nullptr;
 		keyComp = nullptr;
@@ -239,12 +267,12 @@ public:
 
 	/**
 	 * Implémentation pas sûre, notamment en utilisant le comparateur (key_comp)
-	 * @param key
-	 * @return true : réussite de l'insertion.
+	 * @param value
+	 * @return une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
-	bool insert(const value_type& value) {
+	pair<iterator, bool> insert(const value_type& value) {
 		if (find(value).currentNode != nullptr) {
-			return false;
+			return pair<iterator, bool>(iterator(*this, nullptr), false);
 		}
 		node* y = nullptr, * x = racine.get(), * z = new node(value);
 		while (x != nullptr) {
@@ -265,7 +293,7 @@ public:
 				y->droit = z;
 		}
 		++size;
-		return true;
+		return pair<iterator, bool>(iterator(*this, z), true);
 	}
 
 	inline key_compare key_comp() const { return keyComp; }
@@ -336,14 +364,14 @@ class SetIter {
 
 private:
 	Set<Key, Compare>& myset;
-	size_t size;
+	size_t size{};
 	typename Set<Key, Compare>::node* currentNode;
 public:
 	/**
 	 * Constructeur par "défaut"
 	 * @param myset
 	 */
-	SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()), size(myset.getSize()) {}
+	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()), size(myset.getSize()) {}
 
 	/**
 	 * Constructeur de l'itérateur de Set.
