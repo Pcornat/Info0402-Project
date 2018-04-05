@@ -1,13 +1,14 @@
 #ifndef PROJET_SET_HPP
 #define PROJET_SET_HPP
 
-#include "test-set.hpp"
+//#include "test-set.hpp"
 #include <functional>
 #include <initializer_list>
+#include <memory>
 
 using namespace std;
 
-template<class Key, class Compare=less<Key>>
+template <class Key, class Compare=less<Key>>
 class SetIter;
 
 /**
@@ -18,47 +19,49 @@ class SetIter;
  * @tparam Compare fonctor de comparaison
  * @version 0.1
  */
-template<class Key, class Compare=less<Key>>
+template <class Key, class Compare=less<Key>>
 class Set {
 
 public:
 	friend class SetIter<Key, Compare>;
 
 	// Tous les membres de la classe.
-	typedef SetIter<Key, Compare> iterator;
-	typedef Key key_type;
-	typedef Key value_type;
-	typedef Compare key_compare;
-	typedef Compare value_compare;
-	typedef Key* pointer;
-	typedef const Key* const_pointer;
-	typedef value_type& reference;
-	typedef const value_type& const_reference;
-	typedef ptrdiff_t difference_type;
-	typedef size_t size_type;
+	using iterator =  SetIter<Key, Compare>;
+	using key_type = Key;
+	using value_type = Key;
+	using key_compare = Compare;
+	using value_compare = Compare;
+	using pointer = Key*;
+	using const_pointer = const Key*;
+	using reference = value_type&;
+	using const_reference = const value_type&;
+	using difference_type = ptrdiff_t;
+	using size_type = size_t;
 
-	key_compare key_comp;
-	value_compare value_comp;
 private:
-	typedef enum {
+	using color = enum {
 		noir, rouge
-	} color;
+	};
+
 	/**
 	 * Structure de nœud pour l'arbre binaire de recherche (en interne pour éviter de s'en servir en dehors de la classe)
 	 */
-	typedef struct node_t {
+	using node = struct node_t {
 		key_type key;
 		value_type value;
-		color couleur;
-		unique_ptr<struct node_t> parent = nullptr;
-		unique_ptr<struct node_t> gauche = nullptr;
-		unique_ptr<struct node_t> droit = nullptr;
+		color couleur = noir;
+		unique_ptr<node_t> gauche = nullptr;
+		unique_ptr<node_t> droit = nullptr;
+		unique_ptr<node_t> parent = nullptr;
 
+		/**
+		 * Constructeur par défaut : unque_ptr à nullptr, couleur à noir et les autres à 0.
+		 */
 		node_t() noexcept = default;
 
-		explicit node_t(key_type key, struct node_t* parent = nullptr, color couleur = noir) : key(key),
-																							   couleur(couleur),
-																							   parent(parent) {
+		explicit node_t(key_type key, node_t* parent = nullptr, color couleur = noir) : key(key),
+																						couleur(couleur),
+																						parent(parent) {
 		}
 
 		/**
@@ -79,7 +82,7 @@ private:
 		 * Donne le parent du nœud courant
 		 * @return pointeur sur le nœud correspondant au parent
 		 */
-		unique_ptr<struct node_t>& pere() {
+		unique_ptr<node_t>& pere() {
 			return this->parent;
 		}
 
@@ -87,7 +90,7 @@ private:
 		 * Donne le fils droit du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils droit
 		 */
-		unique_ptr<struct node_t>& filsDroit() {
+		unique_ptr<node_t>& filsDroit() {
 			return this->droit;
 		}
 
@@ -95,7 +98,7 @@ private:
 		 * Donne le fils gauche du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils gauche
 		 */
-		unique_ptr<struct node_t>& filsGauche() {
+		unique_ptr<node_t>& filsGauche() {
 			return this->gauche;
 		}
 
@@ -103,7 +106,7 @@ private:
 		 * Permet d'avoir le grand-parent du nœud.
 		 * @return le grand-parent du nœud courant.
 		 */
-		unique_ptr<struct node_t>& grandParent() {
+		unique_ptr<node_t>& grandParent() {
 			return this->parent->parent;
 		}
 
@@ -111,31 +114,31 @@ private:
 		 * Permet d'avoir l'oncle du nœud courant.
 		 * @return l'oncle du nœud courant.
 		 */
-		unique_ptr<struct node_t>& oncle() {
-			struct node_t* x = this->grandParent().get();
+		unique_ptr<node_t>& oncle() {
+			node_t* x = this->grandParent().get();
 			if (x->filsGauche() == this->pere())
 				return x->filsDroit();
 			else if (x->filsDroit() == this->pere())
 				return x->filsGauche();
 		}
-	} node;
+	};
 
-	unique_ptr<node> racine;
-	size_type size;
+	key_compare keyComp;
+	value_compare valueComp;
+	unique_ptr<node> racine = nullptr;
+	size_type size = 0;
 
 public:
 	/**
-	 * Crée un set vide
+	 * Constructeur par défaut.
 	 */
-	Set() : size(0), racine() {}
+	Set() = default;
 
 	/**
 	 * Crée un set vide avec le comp correspondant.
 	 * @param comp
 	 */
-	explicit Set(const key_compare& comp = key_compare()) : racine(nullptr), size(0), key_comp(comp), value_comp(comp) {
-
-	}
+	explicit Set(const key_compare& comp) : keyComp(comp), valueComp(comp) {}
 
 	/**
 	 * Construit un set avec le nombre d'élément compris entre [first, last) avec chaque élément construit emplace
@@ -145,9 +148,9 @@ public:
 	 * @param last
 	 * @param comp
 	 */
-	template<class InputIterator>
-	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : size(0), key_comp(comp),
-																					  value_comp(comp) {
+	template <typename InputIterator>
+	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : size(0), keyComp(comp),
+																					  valueComp(comp) {
 
 	}
 
@@ -155,7 +158,7 @@ public:
 	 * Constructeur par copie.
 	 * @param s Set compatible à copier.
 	 */
-	Set(const Set<Key, Compare>& s) : size(s.getSize()), key_comp(s.key_comp), value_comp(value_comp) {
+	Set(const Set<Key, Compare>& s) : size(s.getSize()), keyComp(s.keyComp), valueComp(valueComp) {
 
 	}
 
@@ -163,12 +166,12 @@ public:
 	 * Constructeur par déplacement
 	 * @param s set à déplacer (voler) les données
 	 */
-	Set(Set<Key, Compare>&& s) noexcept : size(s.size), racine(move(s.racine)), key_comp(s.key_comp),
-										  value_comp(s.value_comp) {
+	Set(Set<Key, Compare>&& s) noexcept : size(s.size), racine(move(s.racine)), key_compare(s.keyComp),
+										  valueComp(s.valueComp) {
 		s.size = 0;
 		s.racine = nullptr;
-		key_comp = nullptr;
-		value_comp = nullptr;
+		keyComp = nullptr;
+		valueComp = nullptr;
 	}
 
 	/**
@@ -176,8 +179,8 @@ public:
 	 * @param [in] il liste d'initialisation
 	 * @param [in]comp comparateur
 	 */
-	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : size(il.size()), key_comp(comp),
-																					value_comp(comp) {
+	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : size(il.size()), keyComp(comp),
+																					valueComp(comp) {
 
 	}
 
@@ -214,7 +217,7 @@ public:
 	 * Getter de size
 	 * @return une référence constante sur la taille de l'objet.
 	 */
-	size_t& getSize() const noexcept {
+	size_type getSize() const noexcept {
 		return this->size;
 	}
 
@@ -226,7 +229,7 @@ public:
 	iterator find(const key_type& key) {
 		node* x = racine.get();
 		while (x != nullptr && key != x->key) {
-			if (key_comp(key, x->key))
+			if (key_compare(key, x->key))
 				x = x->filsGauche().get();
 			else
 				x = x->filsDroit().get();
@@ -246,7 +249,7 @@ public:
 		node* y = nullptr, * x = racine.get(), * z = new node(value);
 		while (x != nullptr) {
 			y = x;
-			if (key_comp(z->key, x->key))
+			if (keyComp(z->key, x->key))
 				x = x->filsGauche().get();
 			else
 				x = x->filsDroit().get();
@@ -256,7 +259,7 @@ public:
 		if (y == nullptr)
 			racine = z;
 		else {
-			if (key_comp(z->key, y->key))
+			if (keyComp(z->key, y->key))
 				y->gauche = z;
 			else
 				y->droit = z;
@@ -264,6 +267,10 @@ public:
 		++size;
 		return true;
 	}
+
+	inline key_compare key_comp() const { return keyComp; }
+
+	inline value_compare value_comp() const { return valueComp; }
 
 	/**
 	 * Assignation par copie.
@@ -286,9 +293,9 @@ public:
 		if (this != &x) {
 			size = x.size;
 			racine = move(x.racine);
-			key_comp = x.key_comp;
-			value_comp = x.value_comp;
-			x.value_comp = x.key_comp = nullptr;
+			keyComp = x.keyComp;
+			valueComp = x.valueComp;
+			//x.valueComp = x.keyComp = nullptr; //Pas nécessaire.
 			x.size = 0;
 		}
 		return *this;
@@ -323,7 +330,7 @@ public:
  * @tparam Key type de clé
  * @tparam Compare foncteur de comparaison
  */
-template<class Key, class Compare>
+template <class Key, class Compare>
 class SetIter {
 	friend class Set<Key, Compare>;
 
