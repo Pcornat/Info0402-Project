@@ -6,10 +6,9 @@
 #include <initializer_list>
 #include <memory>
 
-using namespace std;
+#include "SetIter.hpp"
 
-template <class Key, class Compare=less<Key>>
-class SetIter;
+using namespace std;
 
 /**
  * Implémentation par un arbre binaire équilibré (implémentation officielle du GNU : utilise arbre rouge-noir, pas
@@ -50,12 +49,12 @@ private:
 		key_type key;
 		value_type value;
 		color couleur = noir;
-		unique_ptr<node_t> gauche = nullptr;
-		unique_ptr<node_t> droit = nullptr;
-		shared_ptr<node_t> parent = nullptr;
+		shared_ptr<node_t> gauche;
+		shared_ptr<node_t> droit;
+		shared_ptr<node_t> parent;
 
 		/**
-		 * Constructeur par défaut : unque_ptr à nullptr, couleur à noir et les autres à 0.
+		 * Constructeur par défaut : unque_ptr à nullptr, couleur à noir et les autres avec leurs valeurs par défaut.
 		 */
 		node_t() noexcept = default;
 
@@ -74,7 +73,16 @@ private:
 		}
 
 		/**
-		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr.
+		 * Constructeur par déplacement d'un nœud.
+		 * @param n nœud à déplacer.
+		 */
+		node_t(node_t&& n) noexcept : key(move(n.key)), value(move(n.value)), couleur(move(n.couleur)),
+									  parent(move(n.parent)),
+									  gauche(move(n.gauche)), droit(move(n.droit)) {
+		}
+
+		/**
+		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr et shared_ptr.
 		 */
 		~node_t() noexcept = default;
 
@@ -90,7 +98,7 @@ private:
 		 * Donne le fils droit du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils droit
 		 */
-		unique_ptr<node_t>& filsDroit() {
+		shared_ptr<node_t>& filsDroit() {
 			return this->droit;
 		}
 
@@ -98,7 +106,7 @@ private:
 		 * Donne le fils gauche du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils gauche
 		 */
-		unique_ptr<node_t>& filsGauche() {
+		shared_ptr<node_t>& filsGauche() {
 			return this->gauche;
 		}
 
@@ -114,7 +122,7 @@ private:
 		 * Permet d'avoir l'oncle du nœud courant.
 		 * @return l'oncle du nœud courant.
 		 */
-		unique_ptr<node_t>& oncle() {
+		shared_ptr<node_t>& oncle() {
 			node_t* x = this->grandParent().get();
 			if (x->filsGauche().get() == this->pere())
 				return x->filsDroit();
@@ -128,20 +136,22 @@ private:
 	 * @param root pointeur sur la racine courante du sous-arbre.
 	 * @param n nœud à insérer.
 	 */
-	void insertRecurse(unique_ptr<node>& root, node* n) {
+	void insertRecurse(shared_ptr<node>& root, node* n) {
 		// recursively descend the tree until a leaf is found
 		if (root != nullptr && n->key < root->key) {
-			if (root->gauche != nullptr) {
-				insertRecurse(root->gauche, n);
+			if (root->filsGauche() != nullptr) {
+				insertRecurse(root->filsGauche(), n);
 				return;
-			} else
-				root->gauche = n;
+			} else {
+				root->filsGauche() = n;
+			}
 		} else if (root != nullptr) {
-			if (root->droit != nullptr) {
-				insertRecurse(root->droit, n);
+			if (root->filsDroit() != nullptr) {
+				insertRecurse(root->filsDroit(), n);
 				return;
-			} else
-				root->droit = n;
+			} else {
+				root->filsDroit() = n;
+			}
 		}
 
 		// insert new node n
@@ -151,10 +161,43 @@ private:
 		n->couleur = rouge;
 	}
 
+	void insert_repair_tree(node* n) {
+		if (n->pere() == nullptr) {
+			insert_case1(n);
+		} else if (n->pere()->couleur == noir) {
+			insert_case2(n);
+		} else if (n->pere()->couleur == rouge) {
+			insert_case3(n);
+		} else {
+			insert_case4(n);
+		}
+	}
+
+	void insert_case1(node* n) {
+		if (n->pere() == nullptr) {
+			n->couleur = noir;
+		}
+	}
+
+	void insert_case2(node* n) {
+		return;
+	}
+
+	void insert_case3(node* n) {
+		n->pere()->couleur = noir;
+		n->oncle()->couleur = noir;
+		n->grandParent()->couleur = rouge;
+		insert_repair_tree(n->grandParent().get());
+	}
+
+	void insert_case4(node* n) {
+
+	}
+
 	key_compare keyComp;
 	value_compare valueComp;
-	unique_ptr<node> racine = nullptr;
-	size_type size = 0;
+	shared_ptr<node> racine;
+	size_type size{};
 
 public:
 	/**
@@ -274,7 +317,15 @@ public:
 		if (find(value).currentNode != nullptr) {
 			return pair<iterator, bool>(iterator(*this, nullptr), false);
 		}
-		node* y = nullptr, * x = racine.get(), * z = new node(value);
+		node* n = new node(value);
+		insertRecurse(this->racine, n);
+		insert_repair_tree(n);
+		this->racine = n;
+		while (this->racine->pere() != nullptr) {
+			this->racine = this->racine->pere();
+		}
+		return pair<iterator, bool>(iterator(*this, n), true);
+		/*node* y = nullptr, * x = racine.get(), * z = new node(value);
 		while (x != nullptr) {
 			y = x;
 			if (keyComp(z->key, x->key))
@@ -293,7 +344,7 @@ public:
 				y->droit = z;
 		}
 		++size;
-		return pair<iterator, bool>(iterator(*this, z), true);
+		return pair<iterator, bool>(iterator(*this, z), true);*/
 	}
 
 	inline key_compare key_comp() const { return keyComp; }
@@ -350,60 +401,6 @@ public:
 
 		return true;
 	}
-};
-
-/**
- * Itérateur de Set.
- * @authors Florent Denef, Thomas Ducrot
- * @tparam Key type de clé
- * @tparam Compare foncteur de comparaison
- */
-template <class Key, class Compare>
-class SetIter {
-	friend class Set<Key, Compare>;
-
-private:
-	Set<Key, Compare>& myset;
-	size_t size{};
-	typename Set<Key, Compare>::node* currentNode;
-public:
-	/**
-	 * Constructeur par "défaut"
-	 * @param myset
-	 */
-	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()), size(myset.getSize()) {}
-
-	/**
-	 * Constructeur de l'itérateur de Set.
-	 * @param myset
-	 * @param noeud
-	 */
-	SetIter(Set<Key, Compare>& myset, typename Set<Key, Compare>::node* noeud) : myset(myset), size(myset.getSize()),
-																				 currentNode(noeud) {
-	}
-
-	/**
-	 * Destructeur d'itérateur de Set.
-	 */
-	virtual ~SetIter() {
-	}
-
-	/**
-	 * Opérateur de comparaison d'itérateur.
-	 * @param rhs
-	 * @return
-	 */
-	bool operator==(const SetIter& rhs) const {
-		return this->currentNode == rhs.currentNode;
-	}
-
-	bool operator!=(const SetIter& rhs) const {
-		return !(rhs == *this);
-	}
-
-	typename Set<Key, Compare>::value_type& operator*() const {
-		return currentNode->value;
-	};
 };
 
 #endif //PROJET_SET_HPP
