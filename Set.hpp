@@ -1,14 +1,15 @@
 #ifndef PROJET_SET_HPP
 #define PROJET_SET_HPP
 
-//#include "test-set.hpp"
 #include <functional>
 #include <initializer_list>
 #include <memory>
 
-#include "SetIter.hpp"
 
 using namespace std;
+
+template<class Key, class Compare>
+class SetIter;
 
 /**
  * Implémentation par un arbre binaire équilibré (implémentation officielle du GNU : utilise arbre rouge-noir, pas
@@ -16,13 +17,13 @@ using namespace std;
  * @authors Florent Denef, Thomas Ducrot
  * @tparam Key type de donnée présent dans set
  * @tparam Compare fonctor de comparaison
- * @version 0.1
+ * @version 0.2
  */
-template <class Key, class Compare=less<Key>>
+template<class Key, class Compare=less<Key>>
 class Set {
+	friend class SetIter<Key, Compare>;
 
 public:
-	friend class SetIter<Key, Compare>;
 
 	// Tous les membres de la classe.
 	using iterator =  SetIter<Key, Compare>;
@@ -46,22 +47,24 @@ private:
 	 * Structure de nœud pour l'arbre binaire de recherche (en interne pour éviter de s'en servir en dehors de la classe)
 	 */
 	using node = struct node_t {
-		key_type key;
-		value_type value;
-		color couleur = noir;
+	private:
 		shared_ptr<node_t> gauche;
 		shared_ptr<node_t> droit;
 		shared_ptr<node_t> parent;
+
+	public:
+		key_type key;
+		value_type value;
+		color couleur = noir;
 
 		/**
 		 * Constructeur par défaut : unque_ptr à nullptr, couleur à noir et les autres avec leurs valeurs par défaut.
 		 */
 		node_t() noexcept = default;
 
-		explicit node_t(key_type key, node_t* parent = nullptr, color couleur = noir) : key(key),
+		explicit node_t(key_type key, node_t* parent = nullptr, color couleur = noir) : key(key), value(key),
 																						couleur(couleur),
-																						parent(parent) {
-		}
+																						parent(parent) {}
 
 		/**
 		 * Constructeur par copie du nœud.
@@ -69,8 +72,7 @@ private:
 		 */
 		node_t(const node_t& n) : key(n.key), value(n.value), couleur(n.couleur), parent(nullptr),
 								  gauche(nullptr),
-								  droit(nullptr) {
-		}
+								  droit(nullptr) {}
 
 		/**
 		 * Constructeur par déplacement d'un nœud.
@@ -78,8 +80,7 @@ private:
 		 */
 		node_t(node_t&& n) noexcept : key(move(n.key)), value(move(n.value)), couleur(move(n.couleur)),
 									  parent(move(n.parent)),
-									  gauche(move(n.gauche)), droit(move(n.droit)) {
-		}
+									  gauche(move(n.gauche)), droit(move(n.droit)) {}
 
 		/**
 		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr et shared_ptr.
@@ -115,7 +116,7 @@ private:
 		 * @return le grand-parent du nœud courant.
 		 */
 		shared_ptr<node_t>& grandParent() {
-			return this->parent->parent;
+			return this->pere()->pere();
 		}
 
 		/**
@@ -124,9 +125,9 @@ private:
 		 */
 		shared_ptr<node_t>& oncle() {
 			node_t* x = this->grandParent().get();
-			if (x->filsGauche().get() == this->pere())
+			if (x->filsGauche() == this->pere())
 				return x->filsDroit();
-			else if (x->filsDroit().get() == this->pere())
+			else if (x->filsDroit() == this->pere())
 				return x->filsGauche();
 		}
 	};
@@ -136,28 +137,30 @@ private:
 	 * @param root pointeur sur la racine courante du sous-arbre.
 	 * @param n nœud à insérer.
 	 */
-	void insertRecurse(shared_ptr<node>& root, node* n) {
-		// recursively descend the tree until a leaf is found
+	void insert_recurse(shared_ptr<node>& root, node* n) {
+		// Descend l'arbre récursivement jusqu'à trouver une feuille.
+		//Devoir utiliser la comparaison MAIS ça doit quand même être inférieur !
+		//TODO : réussir la comparaison correctement.
 		if (root != nullptr && n->key < root->key) {
 			if (root->filsGauche() != nullptr) {
-				insertRecurse(root->filsGauche(), n);
+				insert_recurse(root->filsGauche(), n);
 				return;
 			} else {
-				root->filsGauche() = n;
+				root->filsGauche().reset(n);
 			}
 		} else if (root != nullptr) {
 			if (root->filsDroit() != nullptr) {
-				insertRecurse(root->filsDroit(), n);
+				insert_recurse(root->filsDroit(), n);
 				return;
 			} else {
-				root->filsDroit() = n;
+				root->filsDroit().reset(n);
 			}
 		}
 
 		// insert new node n
-		n->parent = root.get();
-		n->gauche = nullptr;
-		n->droit = nullptr;
+		n->pere() = root;
+		n->filsGauche() = nullptr;
+		n->filsDroit() = nullptr;
 		n->couleur = rouge;
 	}
 
@@ -191,7 +194,25 @@ private:
 	}
 
 	void insert_case4(node* n) {
+		node* p = n->pere().get(), * g = n->grandParent().get();
+		if (n == g->filsGauche()->filsDroit().get()) {
+			rotate_left(n);
+			n = n->filsGauche().get();
+		} else if (n == g->filsDroit()->filsGauche().get()) {
+			rotate_right(n);
+			n = n->filsDroit().get();
+		}
+		insert_case4step2(n);
+	}
 
+	void insert_case4step2(node* n) {
+		node* p = n->pere().get(), * g = n->grandParent().get();
+		if (n == p->filsGauche().get())
+			rotate_right(g);
+		else
+			rotate_left(g);
+		p->couleur = noir;
+		g->couleur = rouge;
 	}
 
 	key_compare keyComp;
@@ -219,7 +240,7 @@ public:
 	 * @param last
 	 * @param comp
 	 */
-	template <typename InputIterator>
+	template<typename InputIterator>
 	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : size(0), keyComp(comp),
 																					  valueComp(comp) {
 
@@ -237,13 +258,8 @@ public:
 	 * Constructeur par déplacement
 	 * @param s set à déplacer (voler) les données
 	 */
-	Set(Set&& s) noexcept : size(s.size), racine(move(s.racine)), key_compare(s.keyComp),
-							valueComp(s.valueComp) {
-		s.size = 0;
-		s.racine = nullptr;
-		keyComp = nullptr;
-		valueComp = nullptr;
-	}
+	Set(Set&& s) noexcept : size(move(s.size)), racine(move(s.racine)), key_compare(move(s.keyComp)),
+							valueComp((move(s.valueComp))) {}
 
 	/**
 	 * Constructeur par liste d'initialisation
@@ -251,9 +267,7 @@ public:
 	 * @param [in]comp comparateur
 	 */
 	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : size(il.size()), keyComp(comp),
-																					valueComp(comp) {
-
-	}
+																					valueComp(comp) {}
 
 	/**
 	 * Détruis l'objet.
@@ -265,7 +279,7 @@ public:
 	 * @return retourne un itérateur sur le début du Set.
 	 */
 	iterator begin() noexcept {
-		return iterator(*this);
+		return iterator(*this, racine.get());
 	}
 
 	/**
@@ -299,13 +313,13 @@ public:
 	 */
 	iterator find(const key_type& key) {
 		node* x = racine.get();
-		while (x != nullptr && key != x->key) {
-			if (key_compare(key, x->key))
+		while (x != nullptr && (!keyComp(key, x->key) && !keyComp(x->key, key))) {
+			if (keyComp(key, x->key))
 				x = x->filsGauche().get();
 			else
 				x = x->filsDroit().get();
 		}
-		return x->key; //Normalement renvoie un itérateur et non une référence sur la clé.
+		return iterator(*this, x);
 	}
 
 	/**
@@ -315,16 +329,17 @@ public:
 	 */
 	pair<iterator, bool> insert(const value_type& value) {
 		if (find(value).currentNode != nullptr) {
-			return pair<iterator, bool>(iterator(*this, nullptr), false);
+			return pair<iterator, bool>(iterator(*this), false);
 		}
 		node* n = new node(value);
-		insertRecurse(this->racine, n);
+		insert_recurse(this->racine, n);
 		insert_repair_tree(n);
-		this->racine = n;
+		this->racine = shared_ptr<node>(n);
 		while (this->racine->pere() != nullptr) {
 			this->racine = this->racine->pere();
 		}
-		return pair<iterator, bool>(iterator(*this, n), true);
+		++this->size;
+		return pair<iterator, bool>(iterator(*this, n), false);
 		/*node* y = nullptr, * x = racine.get(), * z = new node(value);
 		while (x != nullptr) {
 			y = x;
@@ -345,6 +360,10 @@ public:
 		}
 		++size;
 		return pair<iterator, bool>(iterator(*this, z), true);*/
+	}
+
+	value_type& getRacine() const {
+		return this->racine.get()->value;
 	}
 
 	inline key_compare key_comp() const { return keyComp; }
@@ -402,5 +421,74 @@ public:
 		return true;
 	}
 };
+
+/**
+ * Itérateur de Set.
+ * @authors Florent Denef, Thomas Ducrot
+ * @tparam Key type de clé
+ * @tparam Compare foncteur de comparaison
+ */
+template<class Key, class Compare>
+class SetIter {
+	friend class Set<Key, Compare>;
+
+private:
+	Set<Key, Compare>& myset;
+	size_t size{};
+	typename Set<Key, Compare>::node* currentNode;
+public:
+	/**
+	 *Constructeur par "défaut"
+	 * @param myset
+	 */
+	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()), size(myset.getSize()) {}
+
+	/**
+ 	 * Constructeur de l'itérateur de Set.
+	 * @param myset
+	 * @param noeud
+	 */
+	explicit SetIter(Set<Key, Compare>& myset, typename Set<Key, Compare>::node* noeud) : myset(myset),
+																						  size(myset.getSize()),
+																						  currentNode(noeud) {}
+
+	/**
+	 * Constructeur par copie.
+	 * @param setIter
+	 */
+	SetIter(const SetIter<Key, Compare>& setIter) : myset(setIter.myset), size(setIter.size),
+													currentNode(setIter.currentNode) {}
+
+	/**
+	 * Destructeur d'itérateur de Set.
+	 */
+	virtual ~SetIter() = default;
+
+	/**
+	 * Opérateur de comparaison d'itérateur.
+	 * @param rhs
+	 * @return
+	 */
+	bool operator==(const SetIter& rhs) const {
+		return this->currentNode == rhs.currentNode;
+	}
+
+	bool operator!=(const SetIter& rhs) const {
+		return rhs.currentNode != this->currentNode;
+	}
+
+	typename Set<Key, Compare>::value_type& operator*() const {
+		return this->currentNode->value;
+	}
+
+	typename Set<Key, Compare>::iterator operator++() {
+
+	}
+
+	typename Set<Key, Compare>::iterator operator++(int) {
+
+	}
+};
+
 
 #endif //PROJET_SET_HPP
