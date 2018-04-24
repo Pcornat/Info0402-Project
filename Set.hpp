@@ -16,7 +16,7 @@ class SetIter;
  * @authors Florent Denef, Thomas Ducrot
  * @tparam Key Type de donnée présent dans set
  * @tparam Compare Type de la fonction de comparaison
- * @version 0.2
+ * @version 0.3
  */
 template<class Key, class Compare=less<Key>>
 class Set {
@@ -139,7 +139,6 @@ private:
 	void insert_recurse(shared_ptr<node>& root, shared_ptr<node>& n) {
 		// Descend l'arbre récursivement jusqu'à trouver une feuille.
 		//Devoir utiliser la comparaison MAIS ça doit quand même être inférieur !
-		//TODO : réussir la comparaison correctement.
 		if (root != nullptr && keyComp(n->key, root->key)) {
 			if (root->filsGauche() != nullptr) {
 				insert_recurse(root->filsGauche(), n);
@@ -158,8 +157,8 @@ private:
 
 		// insert new node n
 		n->pere() = root;
-		n->filsGauche() = nullptr;
-		n->filsDroit() = nullptr;
+		n->filsGauche() = shared_ptr<node>(new node_t);//Feuille
+		n->filsDroit() = shared_ptr<node>(new node_t);//Feuille
 		n->couleur = rouge;
 	}
 
@@ -168,7 +167,7 @@ private:
 			insert_case1(n);
 		} else if (n->pere()->couleur == noir) {
 			insert_case2(n);
-		} else if (n->pere()->couleur == rouge) {
+		} else if (n->oncle()->couleur == rouge) {
 			insert_case3(n);
 		} else {
 			insert_case4(n);
@@ -195,10 +194,10 @@ private:
 	void insert_case4(shared_ptr<node>& n) {
 		shared_ptr<node> p(n->pere()), g(n->grandParent());
 		if (n == g->filsGauche()->filsDroit()) {
-			rotate_left(n);
+			rotate_left(p);
 			n = n->filsGauche();
 		} else if (n == g->filsDroit()->filsGauche()) {
-			rotate_right(n);
+			rotate_right(p);
 			n = n->filsDroit();
 		}
 		insert_case4step2(n);
@@ -299,7 +298,7 @@ public:
 	 * @return retourne un itérateur sur le début du Set.
 	 */
 	iterator begin() noexcept {
-		return iterator(*this, racine.get());
+		return iterator(*this);
 	}
 
 	/**
@@ -307,7 +306,7 @@ public:
 	 * @return itérateur sur le dernier nœud.
 	 */
 	iterator end() noexcept {
-		return iterator(*this, racine.get()); //Normalement renverra l'itérateur sur le dernier noeud.
+		return iterator(*this, nullptr); //Normalement renverra l'itérateur sur le dernier noeud.
 	}
 
 	/**
@@ -359,31 +358,7 @@ public:
 			this->racine = this->racine->pere();
 		}
 		++this->size;
-		return pair<iterator, bool>(iterator(*this, n.get()), false);
-		/*node* y = nullptr, * x = racine.get(), * z = new node(value);
-		while (x != nullptr) {
-			y = x;
-			if (keyComp(z->key, x->key))
-				x = x->filsGauche().get();
-			else
-				x = x->filsDroit().get();
-			x = x->filsDroit().get();
-		}
-		z->parent = y;
-		if (y == nullptr)
-			racine = z;
-		else {
-			if (keyComp(z->key, y->key))
-				y->gauche = z;
-			else
-				y->droit = z;
-		}
-		++size;
-		return pair<iterator, bool>(iterator(*this, z), true);*/
-	}
-
-	value_type& getRacine() const {
-		return this->racine.get()->value;
+		return pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
 
 	inline key_compare key_comp() const { return keyComp; }
@@ -424,7 +399,10 @@ public:
 	 * @param list liste à assigner
 	 * @return l'objet créé par la liste.
 	 */
-	Set& operator=(initializer_list<value_type> list) {
+	Set& operator=(initializer_list<value_type> list) { //Not tested yet.
+		for (auto&& item  : list) {
+			this->insert(item);
+		}
 		return *this;
 	}
 
