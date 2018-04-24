@@ -12,11 +12,10 @@ template<class Key, class Compare>
 class SetIter;
 
 /**
- * Implémentation par un arbre binaire équilibré (implémentation officielle du GNU : utilise arbre rouge-noir, pas
- * obligatoire ici)
+ * Implémentation par un arbre binaire équilibré, ici rouge-noir.
  * @authors Florent Denef, Thomas Ducrot
- * @tparam Key type de donnée présent dans set
- * @tparam Compare fonctor de comparaison
+ * @tparam Key Type de donnée présent dans set
+ * @tparam Compare Type de la fonction de comparaison
  * @version 0.2
  */
 template<class Key, class Compare=less<Key>>
@@ -137,23 +136,23 @@ private:
 	 * @param root pointeur sur la racine courante du sous-arbre.
 	 * @param n nœud à insérer.
 	 */
-	void insert_recurse(shared_ptr<node>& root, node* n) {
+	void insert_recurse(shared_ptr<node>& root, shared_ptr<node>& n) {
 		// Descend l'arbre récursivement jusqu'à trouver une feuille.
 		//Devoir utiliser la comparaison MAIS ça doit quand même être inférieur !
 		//TODO : réussir la comparaison correctement.
-		if (root != nullptr && n->key < root->key) {
+		if (root != nullptr && keyComp(n->key, root->key)) {
 			if (root->filsGauche() != nullptr) {
 				insert_recurse(root->filsGauche(), n);
 				return;
 			} else {
-				root->filsGauche().reset(n);
+				root->filsGauche() = n;
 			}
 		} else if (root != nullptr) {
 			if (root->filsDroit() != nullptr) {
 				insert_recurse(root->filsDroit(), n);
 				return;
 			} else {
-				root->filsDroit().reset(n);
+				root->filsDroit() = n;
 			}
 		}
 
@@ -164,7 +163,7 @@ private:
 		n->couleur = rouge;
 	}
 
-	void insert_repair_tree(node* n) {
+	void insert_repair_tree(shared_ptr<node>& n) {
 		if (n->pere() == nullptr) {
 			insert_case1(n);
 		} else if (n->pere()->couleur == noir) {
@@ -176,43 +175,64 @@ private:
 		}
 	}
 
-	void insert_case1(node* n) {
+	void insert_case1(shared_ptr<node>& n) {
 		if (n->pere() == nullptr) {
 			n->couleur = noir;
 		}
 	}
 
-	void insert_case2(node* n) {
+	void insert_case2(shared_ptr<node>& n) {
 		return;
 	}
 
-	void insert_case3(node* n) {
+	void insert_case3(shared_ptr<node>& n) {
 		n->pere()->couleur = noir;
 		n->oncle()->couleur = noir;
 		n->grandParent()->couleur = rouge;
-		insert_repair_tree(n->grandParent().get());
+		insert_repair_tree(n->grandParent());
 	}
 
-	void insert_case4(node* n) {
-		node* p = n->pere().get(), * g = n->grandParent().get();
-		if (n == g->filsGauche()->filsDroit().get()) {
+	void insert_case4(shared_ptr<node>& n) {
+		shared_ptr<node> p(n->pere()), g(n->grandParent());
+		if (n == g->filsGauche()->filsDroit()) {
 			rotate_left(n);
-			n = n->filsGauche().get();
-		} else if (n == g->filsDroit()->filsGauche().get()) {
+			n = n->filsGauche();
+		} else if (n == g->filsDroit()->filsGauche()) {
 			rotate_right(n);
-			n = n->filsDroit().get();
+			n = n->filsDroit();
 		}
 		insert_case4step2(n);
 	}
 
-	void insert_case4step2(node* n) {
-		node* p = n->pere().get(), * g = n->grandParent().get();
-		if (n == p->filsGauche().get())
+	void insert_case4step2(shared_ptr<node>& n) {
+		shared_ptr<node> p(n->pere()), g(n->grandParent());
+		if (n == p->filsGauche())
 			rotate_right(g);
 		else
 			rotate_left(g);
 		p->couleur = noir;
 		g->couleur = rouge;
+	}
+
+	/*
+	 * Je ne sais pas si cela marche correctement.
+	 */
+	void rotate_left(shared_ptr<node>& n) {
+		shared_ptr<node> aux = n->filsDroit();
+		n->filsDroit() = aux->filsGauche();
+		aux->filsGauche() = n;
+		n = aux;
+	}
+
+	/*
+	 * Je ne sais pas si cela marche correctement.
+	 */
+	void rotate_right(shared_ptr<node>& n) {
+		shared_ptr<node> aux(nullptr);
+		aux = n->filsGauche();
+		n->filsGauche() = aux->filsDroit();
+		aux->filsDroit() = n;
+		n = aux;
 	}
 
 	key_compare keyComp;
@@ -313,7 +333,7 @@ public:
 	 */
 	iterator find(const key_type& key) {
 		node* x = racine.get();
-		while (x != nullptr && (!keyComp(key, x->key) && !keyComp(x->key, key))) {
+		while (x != nullptr && ((keyComp(key, x->key) || keyComp(x->key, key)))) {
 			if (keyComp(key, x->key))
 				x = x->filsGauche().get();
 			else
@@ -331,7 +351,7 @@ public:
 		if (find(value).currentNode != nullptr) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
-		node* n = new node(value);
+		shared_ptr<node> n(new node(value));
 		insert_recurse(this->racine, n);
 		insert_repair_tree(n);
 		this->racine = shared_ptr<node>(n);
@@ -339,7 +359,7 @@ public:
 			this->racine = this->racine->pere();
 		}
 		++this->size;
-		return pair<iterator, bool>(iterator(*this, n), false);
+		return pair<iterator, bool>(iterator(*this, n.get()), false);
 		/*node* y = nullptr, * x = racine.get(), * z = new node(value);
 		while (x != nullptr) {
 			y = x;
