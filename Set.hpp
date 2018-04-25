@@ -21,7 +21,9 @@ class SetIter;
 template<class Key, class Compare=less<Key>>
 class Set {
 	friend class SetIter<Key, Compare>;
-
+/**
+ * @publicsection
+ */
 public:
 
 	// Tous les membres de la classe.
@@ -36,7 +38,9 @@ public:
 	using const_reference = const value_type&;
 	using difference_type = ptrdiff_t;
 	using size_type = size_t;
-
+/**
+ * @privatesection
+ */
 private:
 	using color = enum {
 		noir, rouge
@@ -61,13 +65,19 @@ private:
 		 */
 		node_t() noexcept = default;
 
+		/**
+		 * Constructeur le plus utilisé.
+		 * @param [in]key Clé pour le nœud.
+		 * @param [in]parent Le parent du nœud.
+		 * @param [in]couleur Couleur du nœud.
+		 */
 		explicit node_t(key_type key, node_t* parent = nullptr, color couleur = noir) : key(key), value(key),
 																						couleur(couleur),
 																						parent(parent) {}
 
 		/**
 		 * Constructeur par copie du nœud.
-		 * @param n nœud à copier.
+		 * @param [in]n nœud à copier.
 		 */
 		node_t(const node_t& n) : key(n.key), value(n.value), couleur(n.couleur), parent(nullptr),
 								  gauche(nullptr),
@@ -75,7 +85,7 @@ private:
 
 		/**
 		 * Constructeur par déplacement d'un nœud.
-		 * @param n nœud à déplacer.
+		 * @param [in]n nœud à déplacer.
 		 */
 		node_t(node_t&& n) noexcept : key(move(n.key)), value(move(n.value)), couleur(move(n.couleur)),
 									  parent(move(n.parent)),
@@ -132,38 +142,38 @@ private:
 	};
 
 	/**
-	 * Insertion récursive du nœud dans l'arbre.
-	 * @param root pointeur sur la racine courante du sous-arbre.
-	 * @param n nœud à insérer.
+	 * Insertion du nœud dans l'arbre, algorithme prit dans le livre <a href="https://fr.wikipedia.org/wiki/Introduction_%C3%A0_l%27algorithmique">"Introduction to algorithm, third edition".</a>
+	 * @param [in]root pointeur sur la racine courante du sous-arbre.
+	 * @param [in]z nœud à insérer.
 	 */
-	void insert_recurse(shared_ptr<node>& root, shared_ptr<node>& n) {
-		// Descend l'arbre récursivement jusqu'à trouver une feuille.
-		//Devoir utiliser la comparaison MAIS ça doit quand même être inférieur !
-		if (root != nullptr && keyComp(n->key, root->key)) {
-			if (root->filsGauche() != nullptr) {
-				insert_recurse(root->filsGauche(), n);
-				return;
-			} else {
-				root->filsGauche() = n;
-			}
-		} else if (root != nullptr) {
-			if (root->filsDroit() != nullptr) {
-				insert_recurse(root->filsDroit(), n);
-				return;
-			} else {
-				root->filsDroit() = n;
-			}
+	void insert_recurse(shared_ptr<node>& z) {
+		shared_ptr<node> x(this->racine), y(nullptr);
+		while (x != nullptr) {
+			y = x;
+			if (keyComp(z->key, x->key))
+				x = x->filsGauche();
+			else
+				x = x->filsDroit();
 		}
-
-		// insert new node n
-		n->pere() = root;
-		n->filsGauche() = shared_ptr<node>(new node_t);//Feuille
-		n->filsDroit() = shared_ptr<node>(new node_t);//Feuille
-		n->couleur = rouge;
+		z->pere() = y;
+		if (y == nullptr)
+			this->racine = z;
+		else if (keyComp(z->key, y->key))
+			y->filsGauche() = z;
+		else
+			y->filsDroit() = z;
+		z->filsGauche() = nullptr;
+		z->filsDroit() = nullptr;
+		z->couleur = rouge;
+		insert_repair_tree(z);
 	}
 
-	void insert_repair_tree(shared_ptr<node>& n) {
-		if (n->pere() == nullptr) {
+	/**
+	 * Algorithme provenant du livre "Introduction to algorithm, third edition".
+	 * @param [in]z Le nœud courant à partir duquel on répare l'arbre.
+	 */
+	void insert_repair_tree(shared_ptr<node>& z) {
+		/*if (n->pere() == nullptr) {
 			insert_case1(n);
 		} else if (n->pere()->couleur == noir) {
 			insert_case2(n);
@@ -171,74 +181,89 @@ private:
 			insert_case3(n);
 		} else {
 			insert_case4(n);
+		}*/
+		while (z->pere() != nullptr && z->pere()->couleur == rouge) {
+			//z = nullptr signifie que c'est une feuille, or les feuilles sont noire !
+			if (z->pere() == z->grandParent()->filsGauche()) {
+				shared_ptr<node> y = z->grandParent()->filsDroit();
+				if (y != nullptr && y->couleur == rouge) {
+					//y = nullptr signifie que c'est une feuille, or les feuilles sont noire !
+					z->pere()->couleur = noir;
+					y->couleur = noir;
+					z->grandParent()->couleur = rouge;
+					z = z->grandParent();
+				} else {
+					if (z == z->pere()->filsDroit()) {
+						z = z->pere();
+						rotate_left(z);
+					}
+					z->pere()->couleur = noir;
+					z->grandParent()->couleur = rouge;
+					rotate_right(z->grandParent());
+				}
+			} else {
+				shared_ptr<node> y = z->grandParent()->filsGauche();
+				if (y != nullptr && y->couleur == rouge) {
+					//y = nullptr signifie que c'est une feuille, or les feuilles sont noire !
+					z->pere()->couleur = noir;
+					y->couleur = noir;
+					z->grandParent()->couleur = rouge;
+					z = z->grandParent();
+				} else {
+					if (z == z->pere()->filsGauche()) {
+						z = z->pere();
+						rotate_right(z);
+					}
+					z->pere()->couleur = noir;
+					z->grandParent()->couleur = rouge;
+					rotate_left(z->grandParent());
+				}
+			}
 		}
-	}
-
-	void insert_case1(shared_ptr<node>& n) {
-		if (n->pere() == nullptr) {
-			n->couleur = noir;
-		}
-	}
-
-	void insert_case2(shared_ptr<node>& n) {
-		return;
-	}
-
-	void insert_case3(shared_ptr<node>& n) {
-		n->pere()->couleur = noir;
-		n->oncle()->couleur = noir;
-		n->grandParent()->couleur = rouge;
-		insert_repair_tree(n->grandParent());
-	}
-
-	void insert_case4(shared_ptr<node>& n) {
-		shared_ptr<node> p(n->pere()), g(n->grandParent());
-		if (n == g->filsGauche()->filsDroit()) {
-			rotate_left(p);
-			n = n->filsGauche();
-		} else if (n == g->filsDroit()->filsGauche()) {
-			rotate_right(p);
-			n = n->filsDroit();
-		}
-		insert_case4step2(n);
-	}
-
-	void insert_case4step2(shared_ptr<node>& n) {
-		shared_ptr<node> p(n->pere()), g(n->grandParent());
-		if (n == p->filsGauche())
-			rotate_right(g);
-		else
-			rotate_left(g);
-		p->couleur = noir;
-		g->couleur = rouge;
+		this->racine->couleur = noir;
 	}
 
 	/*
-	 * Je ne sais pas si cela marche correctement.
+	 * Fonctionne, algorithme basé sur le livre.
 	 */
-	void rotate_left(shared_ptr<node>& n) {
-		shared_ptr<node> aux = n->filsDroit();
-		n->filsDroit() = aux->filsGauche();
-		aux->filsGauche() = n;
-		n = aux;
+	void rotate_left(shared_ptr<node>& x) {
+		auto y = x->filsDroit();
+		x->filsDroit() = y->filsGauche();
+		if (y->filsGauche() != nullptr)
+			y->filsGauche()->pere() = x;
+		y->pere() = x->pere();
+		if (x->pere() == nullptr)
+			this->racine = y;
+		else if (x == x->pere()->filsGauche())
+			x->pere()->filsGauche() = y;
+		else x->pere()->filsDroit() = y;
+		y->filsGauche() = x;
+		x->pere() = y;
 	}
 
-	/*
-	 * Je ne sais pas si cela marche correctement.
-	 */
-	void rotate_right(shared_ptr<node>& n) {
-		shared_ptr<node> aux(nullptr);
-		aux = n->filsGauche();
-		n->filsGauche() = aux->filsDroit();
-		aux->filsDroit() = n;
-		n = aux;
+	//todo : vérifier cet algorithme.
+	void rotate_right(shared_ptr<node>& x) {
+		auto y = x->filsGauche();
+		x->filsGauche() = y->filsDroit();
+		if (y->filsDroit() != nullptr)
+			y->filsDroit()->pere() = x;
+		y->pere() = x->pere();
+		if (x->pere() == nullptr)
+			this->racine = y;
+		else if (x == x->pere()->filsDroit())
+			x->pere()->filsDroit() = y;
+		else x->pere()->filsGauche() = y;
+		y->filsDroit() = x;
+		x->pere() = y;
 	}
 
 	key_compare keyComp;
 	value_compare valueComp;
 	shared_ptr<node> racine;
 	size_type size{};
-
+/**
+ * @publicsection
+ */
 public:
 	/**
 	 * Constructeur par défaut.
@@ -247,17 +272,17 @@ public:
 
 	/**
 	 * Crée un set vide avec le comp correspondant.
-	 * @param comp
+	 * @param [in]comp
 	 */
 	explicit Set(const key_compare& comp) : keyComp(comp), valueComp(comp) {}
 
 	/**
 	 * Construit un set avec le nombre d'élément compris entre [first, last) avec chaque élément construit emplace
 	 * correspondant à son élement dans [first, last)
-	 * @tparam InputIterator
-	 * @param first
-	 * @param last
-	 * @param comp
+	 * @tparam [in]InputIterator
+	 * @param [in]first
+	 * @param [in]last
+	 * @param [in]comp
 	 */
 	template<typename InputIterator>
 	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : size(0), keyComp(comp),
@@ -267,7 +292,7 @@ public:
 
 	/**
 	 * Constructeur par copie.
-	 * @param s Set compatible à copier.
+	 * @param [in]s Set compatible à copier.
 	 */
 	Set(const Set& s) : size(s.getSize()), keyComp(s.keyComp), valueComp(valueComp) {
 
@@ -275,7 +300,7 @@ public:
 
 	/**
 	 * Constructeur par déplacement
-	 * @param s set à déplacer (voler) les données
+	 * @param [in]s set à déplacer (voler) les données
 	 */
 	Set(Set&& s) noexcept : size(move(s.size)), racine(move(s.racine)), key_compare(move(s.keyComp)),
 							valueComp((move(s.valueComp))) {}
@@ -303,7 +328,7 @@ public:
 
 	/**
 	 * Itérateur de fin du Set.
-	 * @return itérateur sur le dernier nœud.
+	 * @return [out] Itérateur sur le dernier nœud.
 	 */
 	iterator end() noexcept {
 		return iterator(*this, nullptr); //Normalement renverra l'itérateur sur le dernier noeud.
@@ -311,7 +336,7 @@ public:
 
 	/**
 	 * Vérifie si le conteneur est vide.
-	 * @return true si il est vide.
+	 * @return [out] True si il est vide.
 	 */
 	bool empty() const noexcept {
 		return (size == 0);
@@ -319,7 +344,7 @@ public:
 
 	/**
 	 * Getter de size
-	 * @return une référence constante sur la taille de l'objet.
+	 * @return [out] Une référence constante sur la taille de l'objet.
 	 */
 	size_type getSize() const noexcept {
 		return this->size;
@@ -327,8 +352,8 @@ public:
 
 	/**
 	 * Méthode permettant de rechercher un élément dans le set.
-	 * @param key clé à trouver.
-	 * @return normalement retourne un itérateur sur l'élément
+	 * @param [in]key clé à trouver.
+	 * @return [out] Normalement retourne un itérateur sur l'élément
 	 */
 	iterator find(const key_type& key) {
 		node* x = racine.get();
@@ -343,20 +368,15 @@ public:
 
 	/**
 	 * Implémentation pas sûre, notamment en utilisant le comparateur (key_comp)
-	 * @param value
-	 * @return une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
+	 * @param [in]value
+	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
 	pair<iterator, bool> insert(const value_type& value) {
 		if (find(value).currentNode != nullptr) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
 		shared_ptr<node> n(new node(value));
-		insert_recurse(this->racine, n);
-		insert_repair_tree(n);
-		this->racine = shared_ptr<node>(n);
-		while (this->racine->pere() != nullptr) {
-			this->racine = this->racine->pere();
-		}
+		insert_recurse(n);
 		++this->size;
 		return pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
@@ -367,8 +387,8 @@ public:
 
 	/**
 	 * Assignation par copie.
-	 * @param x objet à copier.
-	 * @return l'objet copié
+	 * @param [in]x Objet à copier.
+	 * @return [out] L'objet copié
 	 */
 	Set& operator=(const Set& x) {
 		if (this != &x) {
@@ -379,8 +399,8 @@ public:
 
 	/**
 	 * Assignation par déplacement.
-	 * @param x objet dont on déplace les ressources.
-	 * @return l'objet nouvellement créé.
+	 * @param [in]x Objet dont on déplace les ressources.
+	 * @return [out] L'objet nouvellement créé.
 	 */
 	Set& operator=(Set&& x) noexcept {
 		if (this != &x) {
@@ -396,8 +416,8 @@ public:
 
 	/**
 	 * Assignation par liste.
-	 * @param list liste à assigner
-	 * @return l'objet créé par la liste.
+	 * @param [in]list Liste à assigner
+	 * @return [out] L'objet créé par la liste.
 	 */
 	Set& operator=(initializer_list<value_type> list) { //Not tested yet.
 		for (auto&& item  : list) {
@@ -409,8 +429,8 @@ public:
 	/**
 	 * Opérateur de comparaison. La comparaison est valide uniquement si les deux Set possèdent les mêmes valeurs au
 	 * même endroit de l'arbre.
-	 * @param rhs Set à comparer avec *this
-	 * @return true : les deux sont égaux
+	 * @param [in]rhs Set à comparer avec *this
+	 * @return [out]True : les deux sont égaux
 	 */
 	bool operator==(const Set<Key, Compare>& rhs) {
 		if (this->size != rhs.size)
