@@ -8,7 +8,7 @@
 
 using namespace std;
 
-template<class Key, class Compare>
+template<typename Key, typename Compare>
 class SetIter;
 
 /**
@@ -18,7 +18,7 @@ class SetIter;
  * @tparam Compare Type de la fonction de comparaison
  * @version 0.3
  */
-template<class Key, class Compare=less<Key>>
+template<typename Key, typename Compare=less<Key>>
 class Set {
 	friend class SetIter<Key, Compare>;
 /**
@@ -56,12 +56,12 @@ private:
 		shared_ptr<node_t> parent;
 
 	public:
-		key_type key;
-		value_type value;
+		//key_type* key = nullptr;
+		unique_ptr<key_type> key;
 		color couleur = noir;
 
 		/**
-		 * Constructeur par défaut : unque_ptr à nullptr, couleur à noir et les autres avec leurs valeurs par défaut.
+		 * Constructeur par défaut : shared_ptr à nullptr, couleur à noir. Utilisé uniquement par tnil.
 		 */
 		node_t() noexcept = default;
 
@@ -71,25 +71,24 @@ private:
 		 * @param [in]parent Le parent du nœud.
 		 * @param [in]couleur Couleur du nœud.
 		 */
-		explicit node_t(key_type key, node_t* parent = nullptr, color couleur = noir) : key(key), value(key),
-																						couleur(couleur),
-																						parent(parent) {}
+		explicit node_t(key_type key, shared_ptr<node_t> parent, color couleur = noir) :
+				key(new key_type(key)), couleur(couleur), parent(parent), gauche(parent), droit(parent) {}
 
 		/**
 		 * Constructeur par copie du nœud.
 		 * @param [in]n nœud à copier.
 		 */
-		node_t(const node_t& n) : key(n.key), value(n.value), couleur(n.couleur), parent(nullptr),
-								  gauche(nullptr),
-								  droit(nullptr) {}
+		explicit node_t(const node_t& n) : key(n.key), couleur(n.couleur), parent(nullptr),
+										   gauche(nullptr),
+										   droit(nullptr) {}
 
 		/**
 		 * Constructeur par déplacement d'un nœud.
 		 * @param [in]n nœud à déplacer.
 		 */
-		node_t(node_t&& n) noexcept : key(move(n.key)), value(move(n.value)), couleur(move(n.couleur)),
-									  parent(move(n.parent)),
-									  gauche(move(n.gauche)), droit(move(n.droit)) {}
+		explicit node_t(node_t&& n) noexcept : key(move(n.key)), couleur(move(n.couleur)),
+											   parent(move(n.parent)),
+											   gauche(move(n.gauche)), droit(move(n.droit)) {}
 
 		/**
 		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr et shared_ptr.
@@ -127,18 +126,6 @@ private:
 		shared_ptr<node_t>& grandParent() {
 			return this->pere()->pere();
 		}
-
-		/**
-		 * Permet d'avoir l'oncle du nœud courant.
-		 * @return l'oncle du nœud courant.
-		 */
-		shared_ptr<node_t>& oncle() {
-			node_t* x = this->grandParent().get();
-			if (x->filsGauche() == this->pere())
-				return x->filsDroit();
-			else if (x->filsDroit() == this->pere())
-				return x->filsGauche();
-		}
 	};
 
 	/**
@@ -147,23 +134,23 @@ private:
 	 * @param [in]z nœud à insérer.
 	 */
 	void insert_recurse(shared_ptr<node>& z) {
-		shared_ptr<node> x(this->racine), y(nullptr);
-		while (x != nullptr) {
+		shared_ptr<node> x(this->racine), y(this->tnil);
+		while (x != this->tnil) {
 			y = x;
-			if (keyComp(z->key, x->key))
+			if (keyComp(*z->key, *x->key))
 				x = x->filsGauche();
 			else
 				x = x->filsDroit();
 		}
 		z->pere() = y;
-		if (y == nullptr)
+		if (y == this->tnil)
 			this->racine = z;
-		else if (keyComp(z->key, y->key))
+		else if (keyComp(*z->key, *y->key))
 			y->filsGauche() = z;
 		else
 			y->filsDroit() = z;
-		z->filsGauche() = nullptr;
-		z->filsDroit() = nullptr;
+		z->filsGauche() = this->tnil;
+		z->filsDroit() = this->tnil;
 		z->couleur = rouge;
 		insert_repair_tree(z);
 	}
@@ -173,20 +160,11 @@ private:
 	 * @param [in]z Le nœud courant à partir duquel on répare l'arbre.
 	 */
 	void insert_repair_tree(shared_ptr<node>& z) {
-		/*if (n->pere() == nullptr) {
-			insert_case1(n);
-		} else if (n->pere()->couleur == noir) {
-			insert_case2(n);
-		} else if (n->oncle()->couleur == rouge) {
-			insert_case3(n);
-		} else {
-			insert_case4(n);
-		}*/
-		while (z->pere() != nullptr && z->pere()->couleur == rouge) {
+		while (z->pere()->couleur == rouge) {
 			//z = nullptr signifie que c'est une feuille, or les feuilles sont noire !
 			if (z->pere() == z->grandParent()->filsGauche()) {
 				shared_ptr<node> y = z->grandParent()->filsDroit();
-				if (y != nullptr && y->couleur == rouge) {
+				if (y->couleur == rouge) {
 					//y = nullptr signifie que c'est une feuille, or les feuilles sont noire !
 					z->pere()->couleur = noir;
 					y->couleur = noir;
@@ -203,7 +181,7 @@ private:
 				}
 			} else {
 				shared_ptr<node> y = z->grandParent()->filsGauche();
-				if (y != nullptr && y->couleur == rouge) {
+				if (y->couleur == rouge) {
 					//y = nullptr signifie que c'est une feuille, or les feuilles sont noire !
 					z->pere()->couleur = noir;
 					y->couleur = noir;
@@ -212,11 +190,11 @@ private:
 				} else {
 					if (z == z->pere()->filsGauche()) {
 						z = z->pere();
-						rotate_right(z);
+						rotate_left(z);
 					}
 					z->pere()->couleur = noir;
 					z->grandParent()->couleur = rouge;
-					rotate_left(z->grandParent());
+					rotate_right(z->grandParent());
 				}
 			}
 		}
@@ -227,39 +205,42 @@ private:
 	 * Fonctionne, algorithme basé sur le livre.
 	 */
 	void rotate_left(shared_ptr<node>& x) {
-		auto y = x->filsDroit();
-		x->filsDroit() = y->filsGauche();
-		if (y->filsGauche() != nullptr)
+		shared_ptr<node> y = x->filsDroit();
+		(x->filsDroit()) = (y->filsGauche());
+		if (y->filsGauche() != this->tnil)
 			y->filsGauche()->pere() = x;
-		y->pere() = x->pere();
-		if (x->pere() == nullptr)
+		(y->pere()) = (x->pere());
+		if (x->pere() == this->tnil)
 			this->racine = y;
 		else if (x == x->pere()->filsGauche())
 			x->pere()->filsGauche() = y;
-		else x->pere()->filsDroit() = y;
+		else
+			x->pere()->filsDroit() = y;
 		y->filsGauche() = x;
 		x->pere() = y;
 	}
 
 	//todo : vérifier cet algorithme.
 	void rotate_right(shared_ptr<node>& x) {
-		auto y = x->filsGauche();
-		x->filsGauche() = y->filsDroit();
-		if (y->filsDroit() != nullptr)
+		shared_ptr<node> y = x->filsGauche();
+		(x->filsGauche()) = (y->filsDroit());
+		if (y->filsDroit() != this->tnil)
 			y->filsDroit()->pere() = x;
-		y->pere() = x->pere();
-		if (x->pere() == nullptr)
+		(y->pere()) = (x->pere());
+		if (x->pere() == this->tnil)
 			this->racine = y;
 		else if (x == x->pere()->filsDroit())
 			x->pere()->filsDroit() = y;
-		else x->pere()->filsGauche() = y;
+		else
+			x->pere()->filsGauche() = y;
 		y->filsDroit() = x;
 		x->pere() = y;
 	}
 
 	key_compare keyComp;
 	value_compare valueComp;
-	shared_ptr<node> racine;
+	shared_ptr<node> tnil{new node};
+	shared_ptr<node> racine{tnil};
 	size_type size{};
 /**
  * @publicsection
@@ -356,14 +337,14 @@ public:
 	 * @return [out] Normalement retourne un itérateur sur l'élément
 	 */
 	iterator find(const key_type& key) {
-		node* x = racine.get();
-		while (x != nullptr && ((keyComp(key, x->key) || keyComp(x->key, key)))) {
-			if (keyComp(key, x->key))
-				x = x->filsGauche().get();
+		shared_ptr<node> x = racine;
+		while (x != this->tnil && ((keyComp(key, *x->key) || keyComp(*x->key, key)))) {
+			if (keyComp(key, *x->key))
+				x = x->filsGauche();
 			else
-				x = x->filsDroit().get();
+				x = x->filsDroit();
 		}
-		return iterator(*this, x);
+		return iterator(*this, x.get());
 	}
 
 	/**
@@ -372,10 +353,10 @@ public:
 	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
 	pair<iterator, bool> insert(const value_type& value) {
-		if (find(value).currentNode != nullptr) {
+		if (find(value).currentNode != this->tnil.get()) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
-		shared_ptr<node> n(new node(value));
+		shared_ptr<node> n(new node(value, this->tnil));
 		insert_recurse(n);
 		++this->size;
 		return pair<iterator, bool>(iterator(*this, n.get()), true);
@@ -443,36 +424,52 @@ public:
 /**
  * Itérateur de Set.
  * @authors Florent Denef, Thomas Ducrot
- * @tparam Key type de clé
- * @tparam Compare foncteur de comparaison
+ * @tparam [in]Key type de clé
+ * @tparam [in]Compare foncteur de comparaison
  */
-template<class Key, class Compare>
+template<typename Key, typename Compare>
 class SetIter {
 	friend class Set<Key, Compare>;
-
+/**
+ * @privatesection
+ */
 private:
 	Set<Key, Compare>& myset;
 	size_t size{};
 	typename Set<Key, Compare>::node* currentNode;
+	typename Set<Key, Compare>::node* lastNode;
+
+/**
+ * @publicsection
+ */
 public:
 	/**
 	 *Constructeur par "défaut"
-	 * @param myset
+	 * @param [in]myset
 	 */
-	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()), size(myset.getSize()) {}
+	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()),
+												 size(myset.getSize()) {
+		if (currentNode != nullptr) {
+			this->lastNode = currentNode->pere().get();
+		}
+	}
 
 	/**
  	 * Constructeur de l'itérateur de Set.
-	 * @param myset
-	 * @param noeud
+	 * @param [in]myset
+	 * @param [in]noeud
 	 */
 	explicit SetIter(Set<Key, Compare>& myset, typename Set<Key, Compare>::node* noeud) : myset(myset),
 																						  size(myset.getSize()),
-																						  currentNode(noeud) {}
+																						  currentNode(noeud) {
+		if (currentNode != nullptr) {
+			this->lastNode = currentNode->pere().get();
+		}
+	}
 
 	/**
 	 * Constructeur par copie.
-	 * @param setIter
+	 * @param [in]setIter
 	 */
 	SetIter(const SetIter<Key, Compare>& setIter) : myset(setIter.myset), size(setIter.size),
 													currentNode(setIter.currentNode) {}
@@ -484,19 +481,24 @@ public:
 
 	/**
 	 * Opérateur de comparaison d'itérateur.
-	 * @param rhs
-	 * @return
+	 * @param [in]rhs Itérateur à comparer avec.
+	 * @return [out] True s'ils sont égaux, sinon false.
 	 */
 	bool operator==(const SetIter& rhs) const {
 		return this->currentNode == rhs.currentNode;
 	}
 
+	/**
+	 * Opérateur de comparaison d'itérateur.
+	 * @param [in]rhs Itérateur à comparer avec.
+	 * @return [out] True s'ils sont différents, sinon false.
+	 */
 	bool operator!=(const SetIter& rhs) const {
 		return rhs.currentNode != this->currentNode;
 	}
 
-	typename Set<Key, Compare>::value_type& operator*() const {
-		return this->currentNode->value;
+	typename Set<Key, Compare>::reference operator*() const {
+		return *this->currentNode->key;
 	}
 
 	typename Set<Key, Compare>::iterator operator++() {
