@@ -47,7 +47,7 @@ private:
 	};
 
 	/**
-	 * Structure de nœud pour l'arbre binaire de recherche (en interne pour éviter de s'en servir en dehors de la classe)
+	 * Structure de nœud pour l'arbre binaire de recherche (en privée pour éviter de s'en servir en dehors de la classe)
 	 */
 	using node = struct node_t {
 	private:
@@ -130,10 +130,9 @@ private:
 
 	/**
 	 * Insertion du nœud dans l'arbre, algorithme prit dans le livre <a href="https://fr.wikipedia.org/wiki/Introduction_%C3%A0_l%27algorithmique">"Introduction to algorithm, third edition".</a>
-	 * @param [in]root pointeur sur la racine courante du sous-arbre.
 	 * @param [in]z nœud à insérer.
 	 */
-	void insert_recurse(shared_ptr<node>& z) {
+	void insert_rd_tree(shared_ptr<node>& z) {
 		shared_ptr<node> x(this->racine), y(this->tnil);
 		while (x != this->tnil) {
 			y = x;
@@ -190,51 +189,59 @@ private:
 				} else {
 					if (z == z->pere()->filsGauche()) {
 						z = z->pere();
-						rotate_left(z);
+						rotate_right(z);
 					}
 					z->pere()->couleur = noir;
 					z->grandParent()->couleur = rouge;
-					rotate_right(z->grandParent());
+					rotate_left(z->grandParent());
 				}
 			}
 		}
 		this->racine->couleur = noir;
 	}
 
-	/*
-	 * Fonctionne, algorithme basé sur le livre.
+	/**
+	 * Rotation gauche. La condition supposée de l'algorithme du livre est que x.right != T.nil.
+	 * @param [in]x Nœud à partir duquel la rotation se fait.
 	 */
 	void rotate_left(shared_ptr<node>& x) {
-		shared_ptr<node> y = x->filsDroit();
-		(x->filsDroit()) = (y->filsGauche());
-		if (y->filsGauche() != this->tnil)
-			y->filsGauche()->pere() = x;
-		(y->pere()) = (x->pere());
-		if (x->pere() == this->tnil)
-			this->racine = y;
-		else if (x == x->pere()->filsGauche())
-			x->pere()->filsGauche() = y;
-		else
-			x->pere()->filsDroit() = y;
-		y->filsGauche() = x;
-		x->pere() = y;
+		if (x->filsDroit() != this->tnil) {
+			shared_ptr<node> y = x->filsDroit();
+			x->filsDroit() = y->filsGauche();
+			if (y->filsGauche() != this->tnil)
+				y->filsGauche()->pere() = x;
+			y->pere() = x->pere();
+			if (x->pere() == this->tnil)
+				this->racine = y;
+			else if (x == x->pere()->filsGauche())
+				x->pere()->filsGauche() = y;
+			else
+				x->pere()->filsDroit() = y;
+			y->filsGauche() = x;
+			x->pere() = y;
+		}
 	}
 
-	//todo : vérifier cet algorithme.
+	/**
+	 * Rotation droite. Même chose que la rotation gauche sauf que tous les mots "gauche" sont remplacés par droit, et vice-versa.
+	 * @param [in]x Nœud à partir duquel la rotation se fait.
+	 */
 	void rotate_right(shared_ptr<node>& x) {
-		shared_ptr<node> y = x->filsGauche();
-		(x->filsGauche()) = (y->filsDroit());
-		if (y->filsDroit() != this->tnil)
-			y->filsDroit()->pere() = x;
-		(y->pere()) = (x->pere());
-		if (x->pere() == this->tnil)
-			this->racine = y;
-		else if (x == x->pere()->filsDroit())
-			x->pere()->filsDroit() = y;
-		else
-			x->pere()->filsGauche() = y;
-		y->filsDroit() = x;
-		x->pere() = y;
+		if (x->filsGauche() != this->tnil) {
+			shared_ptr<node> y = x->filsGauche();
+			x->filsGauche() = y->filsDroit();
+			if (y->filsDroit() != this->tnil)
+				y->filsDroit()->pere() = x;
+			y->pere() = x->pere();
+			if (x->pere() == this->tnil)
+				this->racine = y;
+			else if (x == x->pere()->filsDroit())
+				x->pere()->filsDroit() = y;
+			else
+				x->pere()->filsGauche() = y;
+			y->filsDroit() = x;
+			x->pere() = y;
+		}
 	}
 
 	key_compare keyComp;
@@ -333,11 +340,11 @@ public:
 
 	/**
 	 * Méthode permettant de rechercher un élément dans le set.
-	 * @param [in]key clé à trouver.
+	 * @param [in]key Clé à trouver.
 	 * @return [out] Normalement retourne un itérateur sur l'élément
 	 */
 	iterator find(const key_type& key) {
-		shared_ptr<node> x = racine;
+		shared_ptr<node> x = this->racine;
 		while (x != this->tnil && ((keyComp(key, *x->key) || keyComp(*x->key, key)))) {
 			if (keyComp(key, *x->key))
 				x = x->filsGauche();
@@ -348,7 +355,7 @@ public:
 	}
 
 	/**
-	 * Implémentation pas sûre, notamment en utilisant le comparateur (key_comp)
+	 * Implémentation sûr. Si le comparateur est > au lieu de <, l'arbre sera juste inversée.
 	 * @param [in]value
 	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
@@ -357,7 +364,17 @@ public:
 			return pair<iterator, bool>(iterator(*this), false);
 		}
 		shared_ptr<node> n(new node(value, this->tnil));
-		insert_recurse(n);
+		insert_rd_tree(n);
+		++this->size;
+		return pair<iterator, bool>(iterator(*this, n.get()), true);
+	}
+
+	pair<iterator, bool> insert(value_type&& value) {
+		if (find(value).currentNode != this->tnil.get()) {
+			return pair<iterator, bool>(iterator(*this), false);
+		}
+		shared_ptr<node> n(new node(value, this->tnil));
+		insert_rd_tree(n);
 		++this->size;
 		return pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
@@ -494,7 +511,7 @@ public:
 	 * @return [out] True s'ils sont différents, sinon false.
 	 */
 	bool operator!=(const SetIter& rhs) const {
-		return rhs.currentNode != this->currentNode;
+		return (rhs.currentNode != this->currentNode) && (rhs.lastNode != this->lastNode);
 	}
 
 	typename Set<Key, Compare>::reference operator*() const {
