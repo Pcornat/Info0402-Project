@@ -4,6 +4,7 @@
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <iostream>
 
 
 using namespace std;
@@ -17,6 +18,7 @@ class SetIter;
  * @tparam Key Type de donnée présent dans set
  * @tparam Compare Type de la fonction de comparaison
  * @version 0.3
+ * @todo Tout ce qui concerne la copie de l'objet. La suppression d'éléments.
  */
 template<typename Key, typename Compare=less<Key>>
 class Set {
@@ -56,7 +58,6 @@ private:
 		shared_ptr<node_t> parent;
 
 	public:
-		//key_type* key = nullptr;
 		unique_ptr<key_type> key;
 		color couleur = noir;
 
@@ -316,10 +317,10 @@ public:
 
 	/**
 	 * Itérateur de fin du Set.
-	 * @return [out] Itérateur sur le dernier nœud.
+	 * @return [out] Itérateur sur le dernier nœud : T.nil.
 	 */
 	iterator end() noexcept {
-		return iterator(*this, nullptr); //Normalement renverra l'itérateur sur le dernier noeud.
+		return iterator(*this, this->tnil.get()); //Normalement renverra l'itérateur sur une feuille : tnil !
 	}
 
 	/**
@@ -363,24 +364,72 @@ public:
 		if (find(value).currentNode != this->tnil.get()) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
-		shared_ptr<node> n(new node(value, this->tnil));
+		shared_ptr<node> n;
+		try {
+			n = shared_ptr<node>(new node(value, this->tnil));//Peut throw bad_alloc
+		} catch (const exception& e) {
+			cerr << e.what() << endl;
+			return pair<iterator, bool>(iterator(*this), false);
+		}
 		insert_rd_tree(n);
 		++this->size;
 		return pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
 
+	/**
+	 * Insère une rvalue.
+	 * @param [in]value Rvalue à insérer dans l'arbre.
+	 * @return [out] Une pair avec first = iterator, second = true/false.
+	 */
 	pair<iterator, bool> insert(value_type&& value) {
 		if (find(value).currentNode != this->tnil.get()) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
-		shared_ptr<node> n(new node(value, this->tnil));
+		shared_ptr<node> n;
+		try {
+			n = shared_ptr<node>(new node(value, this->tnil));//Peut throw bad_alloc
+		} catch (const exception& e) {
+			cerr << e.what() << endl;
+			return pair<iterator, bool>(iterator(*this), false);
+		}
 		insert_rd_tree(n);
 		++this->size;
 		return pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
 
+	/**
+	 * Insertion à partir de deux itérateurs.
+	 * @tparam [in]InputIt Type de l'itérateur utilisé pour insérer un élément.
+	 * @param [in]first Itérateur sur le premier élement.
+	 * @param [in]last Itérateur sur le dernier élément.
+	 */
+	template<class InputIt>
+	void insert(InputIt first, InputIt last) {
+		for (auto& it = first; it != last; ++it) {
+			this->insert(*it);
+		}
+	}
+
+	/**
+	 * Insertion à partir d'une liste de type value_type.
+	 * @param [in]il Liste à insérer dans l'arbre.
+	 */
+	void insert(initializer_list<value_type> il) {
+		for (auto&& item  : il) {
+			this->insert(item);
+		}
+	}
+
+	/**
+	 * Renvoie la fonction de comparaison des clés.
+	 * @return [out] Fonction de comparaison de l'objet courant.
+	 */
 	inline key_compare key_comp() const { return keyComp; }
 
+	/**
+	 * Renvoie la fonction de comparaison des valeurs.
+	 * @return [out] Fonction de comparaison de l'objet courant.
+	 */
 	inline value_compare value_comp() const { return valueComp; }
 
 	/**
@@ -443,6 +492,7 @@ public:
  * @authors Florent Denef, Thomas Ducrot
  * @tparam [in]Key type de clé
  * @tparam [in]Compare foncteur de comparaison
+ * @todo L'opérateur d'avancée (++)
  */
 template<typename Key, typename Compare>
 class SetIter {
