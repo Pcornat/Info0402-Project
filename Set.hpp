@@ -24,7 +24,7 @@ template<typename Key, typename Compare=less<Key>>
 class Set {
 	friend class SetIter<Key, Compare>;
 /**
- * @publicsection
+ * @publicsection Types publics.
  */
 public:
 
@@ -41,7 +41,7 @@ public:
 	using difference_type = ptrdiff_t;
 	using size_type = size_t;
 /**
- * @privatesection
+ * @privatesection Structure de nœud et l'énumération pour la couleur.
  */
 private:
 	using color = enum {
@@ -72,12 +72,12 @@ private:
 		 * @param [in]parent Le parent du nœud.
 		 * @param [in]couleur Couleur du nœud.
 		 */
-		explicit node_t(key_type key, shared_ptr<node_t> parent, color couleur = noir) :
-				key(new key_type(key)), couleur(couleur), parent(parent), gauche(parent), droit(parent) {}
+		explicit node_t(key_type key, shared_ptr<node_t> parent) :
+				key(new key_type(key)), couleur(noir), parent(parent), gauche(parent), droit(parent) {}
 
 		/**
 		 * Constructeur par copie du nœud.
-		 * @param [in]n nœud à copier.
+		 * @param [in]n Nœud à copier.
 		 */
 		explicit node_t(const node_t& n) : key(n.key), couleur(n.couleur), parent(nullptr),
 										   gauche(nullptr),
@@ -85,14 +85,14 @@ private:
 
 		/**
 		 * Constructeur par déplacement d'un nœud.
-		 * @param [in]n nœud à déplacer.
+		 * @param [in]n Nœud à déplacer.
 		 */
 		explicit node_t(node_t&& n) noexcept : key(move(n.key)), couleur(move(n.couleur)),
 											   parent(move(n.parent)),
 											   gauche(move(n.gauche)), droit(move(n.droit)) {}
 
 		/**
-		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr et shared_ptr.
+		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr et shared_ptr : garbage collector).
 		 */
 		~node_t() noexcept = default;
 
@@ -274,8 +274,7 @@ public:
 	 * @param [in]comp
 	 */
 	template<typename InputIterator>
-	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : size(0), keyComp(comp),
-																					  valueComp(comp) {
+	Set(InputIterator first, InputIterator last, key_compare& comp = key_compare()) : keyComp(comp), valueComp(comp) {
 
 	}
 
@@ -283,27 +282,28 @@ public:
 	 * Constructeur par copie.
 	 * @param [in]s Set compatible à copier.
 	 */
-	Set(const Set& s) : size(s.getSize()), keyComp(s.keyComp), valueComp(valueComp) {
+	Set(const Set& s) : size(s.size), keyComp(s.keyComp), valueComp(s.valueComp) {
 
 	}
 
 	/**
 	 * Constructeur par déplacement
-	 * @param [in]s set à déplacer (voler) les données
+	 * @param [in]s Set à déplacer (voler) les données
 	 */
-	Set(Set&& s) noexcept : size(move(s.size)), racine(move(s.racine)), key_compare(move(s.keyComp)),
-							valueComp((move(s.valueComp))) {}
+	Set(Set&& s) noexcept : size(move(s.size)), racine(move(s.racine)), tnil(move(s.tnil)),
+							keyComp(move(s.keyComp)),
+							valueComp(move(s.valueComp)) {}
 
 	/**
 	 * Constructeur par liste d'initialisation
 	 * @param [in] il liste d'initialisation
 	 * @param [in]comp comparateur
 	 */
-	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : size(il.size()), keyComp(comp),
+	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : keyComp(comp),
 																					valueComp(comp) {}
 
 	/**
-	 * Détruis l'objet.
+	 * Détruis l'objet, garbage collector grâce aux pointeurs intelligents.
 	 */
 	~Set() noexcept = default;
 
@@ -328,7 +328,7 @@ public:
 	 * @return [out] True si il est vide.
 	 */
 	bool empty() const noexcept {
-		return (size == 0);
+		return (this->size == 0);
 	}
 
 	/**
@@ -451,12 +451,13 @@ public:
 	 */
 	Set& operator=(Set&& x) noexcept {
 		if (this != &x) {
-			size = x.size;
+			size = move(x.size);
 			racine = move(x.racine);
-			keyComp = x.keyComp;
-			valueComp = x.valueComp;
+			tnil = move(x.tnil);
+			keyComp = move(x.keyComp);
+			valueComp = move(x.valueComp);
 			//x.valueComp = x.keyComp = nullptr; //Pas nécessaire.
-			x.size = 0;
+			//x.size = 0;
 		}
 		return *this;
 	}
