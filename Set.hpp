@@ -72,7 +72,7 @@ private:
 		 * @param [in]parent Le parent du nœud.
 		 * @param [in]couleur Couleur du nœud.
 		 */
-		explicit node_t(key_type key, shared_ptr<node_t> parent) :
+		explicit node_t(reference key, shared_ptr<node_t> parent) :
 				key(new key_type(key)), couleur(noir), parent(parent), gauche(parent), droit(parent) {}
 
 		/**
@@ -159,7 +159,7 @@ private:
 	 * Algorithme provenant du livre "Introduction to algorithm, third edition".
 	 * @param [in]z Le nœud courant à partir duquel on répare l'arbre.
 	 */
-	void insert_repair_tree(shared_ptr<node>& z) {
+	void insert_repair_tree(shared_ptr<node> z) {
 		while (z->pere()->couleur == rouge) {
 			if (z->pere() == z->grandParent()->filsGauche()) {
 				shared_ptr<node> y = z->grandParent()->filsDroit();
@@ -202,7 +202,7 @@ private:
 	 * Rotation gauche. La condition supposée de l'algorithme du livre est que x.right != T.nil.
 	 * @param [in]x Nœud à partir duquel la rotation se fait.
 	 */
-	void rotate_left(shared_ptr<node>& x) {
+	void rotate_left(const shared_ptr<node>& x) {
 		if (x->filsDroit() != this->tnil) {
 			shared_ptr<node> y = x->filsDroit();
 			x->filsDroit() = y->filsGauche();
@@ -224,7 +224,7 @@ private:
 	 * Rotation droite. Même chose que la rotation gauche sauf que tous les mots "gauche" sont remplacés par droit, et vice-versa.
 	 * @param [in]x Nœud à partir duquel la rotation se fait.
 	 */
-	void rotate_right(shared_ptr<node>& x) {
+	void rotate_right(const shared_ptr<node>& x) {
 		if (x->filsGauche() != this->tnil) {
 			shared_ptr<node> y = x->filsGauche();
 			x->filsGauche() = y->filsDroit();
@@ -341,7 +341,7 @@ public:
 	 * @param [in]key Clé à trouver.
 	 * @return [out] Normalement retourne un itérateur sur l'élément
 	 */
-	iterator find(const key_type& key) {
+	iterator find(const reference key) {
 		shared_ptr<node> x = this->racine;
 		while (x != this->tnil && ((keyComp(key, *x->key) || keyComp(*x->key, key)))) {
 			if (keyComp(key, *x->key))
@@ -357,7 +357,7 @@ public:
 	 * @param [in]value
 	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
-	pair<iterator, bool> insert(const value_type& value) {
+	pair<iterator, bool> insert(const reference value) {
 		if (find(value).currentNode != this->tnil.get()) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
