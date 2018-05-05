@@ -161,11 +161,9 @@ private:
 	 */
 	void insert_repair_tree(shared_ptr<node>& z) {
 		while (z->pere()->couleur == rouge) {
-			//z = nullptr signifie que c'est une feuille, or les feuilles sont noire !
 			if (z->pere() == z->grandParent()->filsGauche()) {
 				shared_ptr<node> y = z->grandParent()->filsDroit();
 				if (y->couleur == rouge) {
-					//y = nullptr signifie que c'est une feuille, or les feuilles sont noire !
 					z->pere()->couleur = noir;
 					y->couleur = noir;
 					z->grandParent()->couleur = rouge;
@@ -182,7 +180,6 @@ private:
 			} else {
 				shared_ptr<node> y = z->grandParent()->filsGauche();
 				if (y->couleur == rouge) {
-					//y = nullptr signifie que c'est une feuille, or les feuilles sont noire !
 					z->pere()->couleur = noir;
 					y->couleur = noir;
 					z->grandParent()->couleur = rouge;
@@ -415,7 +412,7 @@ public:
 	 * @param [in]il Liste à insérer dans l'arbre.
 	 */
 	void insert(initializer_list<value_type> il) {
-		for (auto&& item  : il) {
+		for (auto&& item : il) {
 			this->insert(item);
 		}
 	}
@@ -517,7 +514,7 @@ public:
 	 */
 	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()),
 												 size(myset.getSize()) {
-		if (currentNode != nullptr) {
+		if (currentNode != myset.tnil.get()) {
 			this->lastNode = currentNode->pere().get();
 		}
 	}
@@ -553,7 +550,7 @@ public:
 	 * @return [out] True s'ils sont égaux, sinon false.
 	 */
 	bool operator==(const SetIter& rhs) const {
-		return this->currentNode == rhs.currentNode;
+		return (this->currentNode == rhs.currentNode) && (this->lastNode == rhs.currentNode);
 	}
 
 	/**
@@ -570,7 +567,15 @@ public:
 	}
 
 	typename Set<Key, Compare>::iterator operator++() {
+		if (this->currentNode->filsGauche() != this->myset.tnil) {
+			this->lastNode = this->currentNode;
+			this->currentNode = this->currentNode->filsGauche().get();
+		} else if (this->currentNode->filsDroit() != this->myset.tnil) {
+			this->lastNode = this->currentNode;
+			this->currentNode = this->currentNode->filsDroit().get();
+		} else { //On atterit sur une feuille
 
+		}
 	}
 
 	typename Set<Key, Compare>::iterator operator++(int) {

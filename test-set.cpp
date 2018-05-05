@@ -9,7 +9,7 @@ TEST_CASE("Test constructeur", "[1][constructeur test]") {
 	REQUIRE(stlSet.size() == mySet.getSize());
 }
 
-TEST_CASE("Test insertion lvalue", "[2][test insertion lvalue]") {
+TEST_CASE("Test insertion", "[2][test insertion]") {
 	Set<int> mySet;
 	set<int> stlSet;
 	const int max = 5;
