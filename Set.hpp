@@ -13,12 +13,13 @@ template<typename Key, typename Compare>
 class SetIter;
 
 /**
+ * @class Set
  * Implémentation par un arbre binaire équilibré, ici rouge-noir.
  * @authors Florent Denef, Thomas Ducrot
  * @tparam Key Type de donnée présent dans set
  * @tparam Compare Type de la fonction de comparaison
  * @version 0.3
- * @todo Tout ce qui concerne la copie de l'objet. La suppression d'éléments.
+ * @todo Tout ce qui concerne la copie de l'objet. La suppression d'éléments. Le swap
  */
 template<typename Key, typename Compare=less<Key>>
 class Set {
@@ -44,12 +45,17 @@ public:
  * @privatesection Structure de nœud et l'énumération pour la couleur.
  */
 private:
+	/**
+	 * @enum color
+	 * Enum pour la couleur des nœuds de l'arbre.
+	 */
 	using color = enum {
 		noir, rouge
 	};
 
 	/**
-	 * Structure de nœud pour l'arbre binaire de recherche (en privée pour éviter de s'en servir en dehors de la classe)
+	 * @struct node_t
+	 * Structure de nœud pour l'arbre binaire de recherche.
 	 */
 	using node = struct node_t {
 	private:
@@ -79,9 +85,8 @@ private:
 		 * Constructeur par copie du nœud.
 		 * @param [in]n Nœud à copier.
 		 */
-		explicit node_t(const node_t& n) : key(n.key), couleur(n.couleur), parent(nullptr),
-										   gauche(nullptr),
-										   droit(nullptr) {}
+		explicit node_t(const node_t& n) :
+				key(n.key), couleur(n.couleur), parent(nullptr), gauche(nullptr), droit(nullptr) {}
 
 		/**
 		 * Constructeur par déplacement d'un nœud.
@@ -129,6 +134,26 @@ private:
 		}
 	};
 
+	shared_ptr<node> tree_minimum(const shared_ptr<node>& x) {
+		if (keyComp(*x->filsGauche()->key, *x->key)) {
+			minG(x);
+		} else {
+			minD(x);
+		}
+	}
+
+	shared_ptr<node> minG(shared_ptr<node> x) {
+		while (x->filsGauche() != this->tnil)
+			x = x->filsGauche();
+		return x;
+	}
+
+	shared_ptr<node> minD(shared_ptr<node> x) {
+		while (x->filsDroit() != this->tnil)
+			x = x->filsDroit();
+		return x;
+	}
+
 	/**
 	 * Insertion du nœud dans l'arbre, algorithme prit dans le livre <a href="https://fr.wikipedia.org/wiki/Introduction_%C3%A0_l%27algorithmique">"Introduction to algorithm, third edition".</a>
 	 * @param [in]z nœud à insérer.
@@ -158,8 +183,9 @@ private:
 	/**
 	 * Algorithme provenant du livre "Introduction to algorithm, third edition".
 	 * @param [in]z Le nœud courant à partir duquel on répare l'arbre.
+	 * @bug segfault aléatoire dans la deuxième partie de l'algorithme.
 	 */
-	void insert_repair_tree(shared_ptr<node> z) {
+	void insert_repair_tree(shared_ptr<node>& z) {
 		while (z->pere()->couleur == rouge) {
 			if (z->pere() == z->grandParent()->filsGauche()) {
 				shared_ptr<node> y = z->grandParent()->filsDroit();
@@ -177,7 +203,11 @@ private:
 					z->grandParent()->couleur = rouge;
 					rotate_right(z->grandParent());
 				}
-			} else {
+				/*
+				 * Cette partie n'était pas donnée dans le livre. En partie de la devinette.
+				 * Et c'est elle qui cause la segfault (rotation droite ou gauche)
+				 */
+			} else if (z->pere() == z->grandParent()->filsDroit()) {
 				shared_ptr<node> y = z->grandParent()->filsGauche();
 				if (y->couleur == rouge) {
 					z->pere()->couleur = noir;
@@ -240,6 +270,55 @@ private:
 			y->filsDroit() = x;
 			x->pere() = y;
 		}
+	}
+
+	/**
+	 * Transplantation d'arbre
+	 * @param [in]u Donneur
+	 * @param [in]v Receveur
+	 */
+	void rb_transplant(const shared_ptr<node>& u, const shared_ptr<node>& v) {
+		if (u->pere() == this->tnil)
+			this->racine = v;
+		else if (u == u->pere()->filsGauche())
+			u->pere()->filsGauche() = v;
+		else
+			u->pere()->filsDroit() = v;
+		v->pere() = u->pere();
+	}
+
+	void rb_delete_fixup(shared_ptr<node> x) {
+		while (x != this->racine && x->couleur == noir) {
+			shared_ptr<node> w;
+			if (x == x->pere()->filsGauche()) {
+				w = x->pere()->filsDroit();
+				if (w->couleur == rouge) {
+					w->couleur = noir;
+					x->pere()->couleur = rouge;
+					rotate_left(x->pere());
+					w = x->pere()->filsDroit();
+				}
+				if (w->filsGauche()->couleur == noir && w->filsDroit()->couleur == noir) {
+					w->couleur = rouge;
+					x = x->pere();
+				} else {
+					if (w->filsDroit()->couleur == noir) {
+						w->filsGauche()->couleur = noir;
+						w->couleur = rouge;
+						rotate_right(w);
+						w = x->pere()->filsDroit();
+					}
+					w->couleur = x->pere()->couleur;
+					x->pere()->couleur = noir;
+					w->filsDroit()->couleur = noir;
+					rotate_left(x->pere());
+					x = this->racine;
+				}
+			} else {
+
+			}
+		}
+		x->couleur = noir;
 	}
 
 	key_compare keyComp;
@@ -358,7 +437,7 @@ public:
 	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
 	pair<iterator, bool> insert(const reference value) {
-		if (find(value).currentNode != this->tnil.get()) {
+		if (find(value).currentNode != this->tnil) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
 		shared_ptr<node> n;
@@ -379,7 +458,7 @@ public:
 	 * @return [out] Une pair avec first = iterator, second = true/false.
 	 */
 	pair<iterator, bool> insert(value_type&& value) {
-		if (find(value).currentNode != this->tnil.get()) {
+		if (find(value).currentNode != this->tnil) {
 			return pair<iterator, bool>(iterator(*this), false);
 		}
 		shared_ptr<node> n;
@@ -415,6 +494,45 @@ public:
 		for (auto&& item : il) {
 			this->insert(item);
 		}
+	}
+
+	/**
+	 * Permets d'effacer un noeud de l'arbre.
+	 * @param [in]key Valeur contenue dans le noeud à effacer.
+	 * @return [out] Nombre d'élément d'enlever (ici 0 ou 1, chaque élément étant unique).
+	 * @todo Finir cette méthode ainsi que les fonctions qui lui sont nécessaires.
+	 */
+	size_type erase(const reference key) {
+		shared_ptr<node> z(find(key).currentNode), y(z), x;
+		if (z != this->tnil) {
+			return 0;
+		}
+		color y_original = y->couleur;
+		if (z->filsGauche() == this->tnil) {
+			x = z->filsDroit();
+			rb_transplant(z, z->filsDroit());
+		} else if (z->filsDroit() == this->tnil) {
+			x = z->filsGauche();
+			rb_transplant(z, z->filsGauche());
+		} else {
+			y = tree_minimum(z->filsDroit());
+			y_original = y->couleur;
+			x = y->filsDroit();
+			if (y->pere() == z)
+				x->pere() = y;
+			else {
+				rb_transplant(y, y->filsDroit());
+				y->filsDroit() = z->filsDroit();
+				y->filsDroit()->pere() = y;
+			}
+			rb_transplant(z, y);
+			y->filsGauche() = z->filsGauche();
+			y->filsGauche()->pere() = y;
+			y->couleur = z->couleur;
+		}
+		if (y_original == noir)
+			rb_delete_fixup(x);
+		return 1; //Si élément présent
 	}
 
 	/**
@@ -501,8 +619,8 @@ class SetIter {
 private:
 	Set<Key, Compare>& myset;
 	size_t size{};
-	typename Set<Key, Compare>::node* currentNode;
-	typename Set<Key, Compare>::node* lastNode;
+	shared_ptr<typename Set<Key, Compare>::node> currentNode;
+	shared_ptr<typename Set<Key, Compare>::node> lastNode;
 
 /**
  * @publicsection
@@ -512,10 +630,10 @@ public:
 	 *Constructeur par "défaut"
 	 * @param [in]myset
 	 */
-	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine.get()),
+	explicit SetIter(Set<Key, Compare>& myset) : myset(myset), currentNode(myset.racine),
 												 size(myset.getSize()) {
-		if (currentNode != myset.tnil.get()) {
-			this->lastNode = currentNode->pere().get();
+		if (currentNode != myset.tnil) {
+			this->lastNode = currentNode->pere();
 		}
 	}
 
@@ -527,8 +645,8 @@ public:
 	explicit SetIter(Set<Key, Compare>& myset, typename Set<Key, Compare>::node* noeud) : myset(myset),
 																						  size(myset.getSize()),
 																						  currentNode(noeud) {
-		if (currentNode != nullptr) {
-			this->lastNode = currentNode->pere().get();
+		if (currentNode != myset.tnil) {
+			this->lastNode = currentNode->pere();
 		}
 	}
 
@@ -537,7 +655,7 @@ public:
 	 * @param [in]setIter
 	 */
 	SetIter(const SetIter<Key, Compare>& setIter) : myset(setIter.myset), size(setIter.size),
-													currentNode(setIter.currentNode) {}
+													currentNode(setIter.currentNode), lastNode(setIter.lastNode) {}
 
 	/**
 	 * Destructeur d'itérateur de Set.
@@ -569,10 +687,10 @@ public:
 	typename Set<Key, Compare>::iterator operator++() {
 		if (this->currentNode->filsGauche() != this->myset.tnil) {
 			this->lastNode = this->currentNode;
-			this->currentNode = this->currentNode->filsGauche().get();
+			this->currentNode = this->currentNode->filsGauche();
 		} else if (this->currentNode->filsDroit() != this->myset.tnil) {
 			this->lastNode = this->currentNode;
-			this->currentNode = this->currentNode->filsDroit().get();
+			this->currentNode = this->currentNode->filsDroit();
 		} else { //On atterit sur une feuille
 
 		}
