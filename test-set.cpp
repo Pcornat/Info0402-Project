@@ -14,7 +14,7 @@ TEST_CASE("Test insertion", "[2][test insertion]") {
 	set<int> stlSet;
 	const int max = 15;
 	default_random_engine generator(static_cast<unsigned long>(chrono::system_clock::now().time_since_epoch().count()));
-	uniform_int_distribution<> distribution(15);
+	uniform_int_distribution<> distribution(1, max);
 	REQUIRE(mySet.getSize() == stlSet.size());
 
 	for (int i = 0; i < max; ++i) {
