@@ -177,9 +177,10 @@ private:
 	 * @bug segfault aléatoire dans la deuxième partie de l'algorithme.
 	 */
 	void insert_repair_tree(std::shared_ptr<node>& z) {
+		std::shared_ptr<node> y;
 		while (z->pere()->couleur == rouge) {
 			if (z->pere() == z->grandParent()->filsGauche()) {
-				std::shared_ptr<node> y = z->grandParent()->filsDroit();
+				y = z->grandParent()->filsDroit();
 				if (y->couleur == rouge) {
 					z->pere()->couleur = noir;
 					y->couleur = noir;
@@ -199,7 +200,7 @@ private:
 				 * Et c'est elle qui cause la segfault (rotation droite ou gauche)
 				 */
 			} else {
-				std::shared_ptr<node> y = z->grandParent()->filsGauche();
+				y = z->grandParent()->filsGauche();
 				if (y->couleur == rouge) {
 					z->pere()->couleur = noir;
 					y->couleur = noir;
@@ -340,9 +341,9 @@ private:
 
 	key_compare keyComp;
 	value_compare valueComp;
-	std::shared_ptr<node> tnil{new node};
-	std::shared_ptr<node> racine{tnil};
-	size_type size{};
+	std::shared_ptr<node> tnil;
+	std::shared_ptr<node> racine;
+	size_type size;
 /**
  * @publicsection
  */
@@ -350,7 +351,7 @@ public:
 	/**
 	 * Constructeur par défaut.
 	 */
-	Set() = default;
+	Set() : tnil(new node()), racine(tnil), size(0) {}
 
 	/**
 	 * Crée un set vide avec le comp correspondant.
