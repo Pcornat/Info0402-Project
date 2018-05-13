@@ -198,7 +198,7 @@ private:
 				 * Cette partie n'était pas donnée dans le livre. En partie de la devinette.
 				 * Et c'est elle qui cause la segfault (rotation droite ou gauche)
 				 */
-			} else if (z->pere() == z->grandParent()->filsDroit()) {
+			} else {
 				std::shared_ptr<node> y = z->grandParent()->filsGauche();
 				if (y->couleur == rouge) {
 					z->pere()->couleur = noir;
@@ -449,9 +449,10 @@ public:
 	}
 
 	/**
-	 * Implémentation sûr. Si le comparateur est > au lieu de <, l'arbre sera juste inversée.
+	 * Implémentation sûre. Si le comparateur est > au lieu de <, l'arbre sera juste inversée.
 	 * @param [in]value
 	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
+	 * @bug Il y a une boucle infinie qui était absente auparavant. Raison inconnue.
 	 */
 	std::pair<iterator, bool> insert(const reference value) {
 		if (find(value).currentNode != this->tnil) {
