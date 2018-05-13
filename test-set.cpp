@@ -4,21 +4,19 @@
 #include "Set.hpp"
 
 TEST_CASE("Test constructeur", "[1][constructeur test]") {
-	set<int> stlSet;
+	std::set<int> stlSet;
 	Set<int> mySet;
 	REQUIRE(stlSet.size() == mySet.getSize());
 }
 
 TEST_CASE("Test insertion", "[2][test insertion]") {
-	Set<int> mySet;
-	set<int> stlSet;
+	Set<unsigned int> mySet;
+	std::set<unsigned int> stlSet;
 	const int max = 15;
-	default_random_engine generator(static_cast<unsigned long>(chrono::system_clock::now().time_since_epoch().count()));
-	uniform_int_distribution<> distribution(1, max);
+	std::random_device rd;
 	REQUIRE(mySet.getSize() == stlSet.size());
-
 	for (int i = 0; i < max; ++i) {
-		int number = distribution(generator);
+		unsigned int number = rd();
 		mySet.insert(number);
 		stlSet.insert(number);
 	}//*/

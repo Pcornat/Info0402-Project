@@ -7,7 +7,7 @@
 #include <iostream>
 
 
-using namespace std;
+//using namespace std;
 
 template<typename Key, typename Compare>
 class SetIter;
@@ -21,7 +21,7 @@ class SetIter;
  * @version 0.3
  * @todo Tout ce qui concerne la copie de l'objet. La suppression d'éléments. Le swap
  */
-template<typename Key, typename Compare=less<Key>>
+template<typename Key, typename Compare=std::less<Key>>
 class Set {
 	friend class SetIter<Key, Compare>;
 /**
@@ -59,12 +59,12 @@ private:
 	 */
 	using node = struct node_t {
 	private:
-		shared_ptr<node_t> gauche;
-		shared_ptr<node_t> droit;
-		shared_ptr<node_t> parent;
+		std::shared_ptr<node_t> gauche;
+		std::shared_ptr<node_t> droit;
+		std::shared_ptr<node_t> parent;
 
 	public:
-		unique_ptr<key_type> key;
+		std::unique_ptr<key_type> key;
 		color couleur = noir;
 
 		/**
@@ -78,7 +78,7 @@ private:
 		 * @param [in]parent Le parent du nœud.
 		 * @param [in]couleur Couleur du nœud.
 		 */
-		explicit node_t(reference key, shared_ptr<node_t> parent) :
+		explicit node_t(reference key, std::shared_ptr<node_t> parent) :
 				key(new key_type(key)), couleur(noir), parent(parent), gauche(parent), droit(parent) {}
 
 		/**
@@ -92,9 +92,9 @@ private:
 		 * Constructeur par déplacement d'un nœud.
 		 * @param [in]n Nœud à déplacer.
 		 */
-		explicit node_t(node_t&& n) noexcept : key(move(n.key)), couleur(move(n.couleur)),
-											   parent(move(n.parent)),
-											   gauche(move(n.gauche)), droit(move(n.droit)) {}
+		explicit node_t(node_t&& n) noexcept : key(std::move(n.key)), couleur(std::move(n.couleur)),
+											   parent(std::move(n.parent)),
+											   gauche(std::move(n.gauche)), droit(std::move(n.droit)) {}
 
 		/**
 		 * Destructeur (appellera automatiquement les destructeurs des unique_ptr et shared_ptr : garbage collector).
@@ -105,7 +105,7 @@ private:
 		 * Donne le parent du nœud courant
 		 * @return pointeur sur le nœud correspondant au parent
 		 */
-		shared_ptr<node_t>& pere() {
+		std::shared_ptr<node_t>& pere() {
 			return this->parent;
 		}
 
@@ -113,7 +113,7 @@ private:
 		 * Donne le fils droit du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils droit
 		 */
-		shared_ptr<node_t>& filsDroit() {
+		std::shared_ptr<node_t>& filsDroit() {
 			return this->droit;
 		}
 
@@ -121,7 +121,7 @@ private:
 		 * Donne le fils gauche du nœud courant
 		 * @return pointeur sur le nœud correspondant au fils gauche
 		 */
-		shared_ptr<node_t>& filsGauche() {
+		std::shared_ptr<node_t>& filsGauche() {
 			return this->gauche;
 		}
 
@@ -129,28 +129,19 @@ private:
 		 * Permet d'avoir le grand-parent du nœud.
 		 * @return le grand-parent du nœud courant.
 		 */
-		shared_ptr<node_t>& grandParent() {
+		std::shared_ptr<node_t>& grandParent() {
 			return this->pere()->pere();
 		}
 	};
 
-	shared_ptr<node> tree_minimum(const shared_ptr<node>& x) {
-		if (keyComp(*x->filsGauche()->key, *x->key)) {
-			minG(x);
-		} else {
-			minD(x);
-		}
-	}
-
-	shared_ptr<node> minG(shared_ptr<node> x) {
+	/**
+	 * Permet de rechercher le minimum (si Compare = std::less) ou le maximum (Compare = std::greater)
+	 * @param [in]x La racine du sous-arbre dont on doit trouver le "minimum"
+	 * @return Le "minimum" de l'arbre
+	 */
+	std::shared_ptr<node> tree_minimum(std::shared_ptr<node> x) {
 		while (x->filsGauche() != this->tnil)
 			x = x->filsGauche();
-		return x;
-	}
-
-	shared_ptr<node> minD(shared_ptr<node> x) {
-		while (x->filsDroit() != this->tnil)
-			x = x->filsDroit();
 		return x;
 	}
 
@@ -158,8 +149,8 @@ private:
 	 * Insertion du nœud dans l'arbre, algorithme prit dans le livre <a href="https://fr.wikipedia.org/wiki/Introduction_%C3%A0_l%27algorithmique">"Introduction to algorithm, third edition".</a>
 	 * @param [in]z nœud à insérer.
 	 */
-	void insert_rd_tree(shared_ptr<node>& z) {
-		shared_ptr<node> x(this->racine), y(this->tnil);
+	void insert_rd_tree(std::shared_ptr<node>& z) {
+		std::shared_ptr<node> x(this->racine), y(this->tnil);
 		while (x != this->tnil) {
 			y = x;
 			if (keyComp(*z->key, *x->key))
@@ -185,10 +176,10 @@ private:
 	 * @param [in]z Le nœud courant à partir duquel on répare l'arbre.
 	 * @bug segfault aléatoire dans la deuxième partie de l'algorithme.
 	 */
-	void insert_repair_tree(shared_ptr<node>& z) {
+	void insert_repair_tree(std::shared_ptr<node>& z) {
 		while (z->pere()->couleur == rouge) {
 			if (z->pere() == z->grandParent()->filsGauche()) {
-				shared_ptr<node> y = z->grandParent()->filsDroit();
+				std::shared_ptr<node> y = z->grandParent()->filsDroit();
 				if (y->couleur == rouge) {
 					z->pere()->couleur = noir;
 					y->couleur = noir;
@@ -208,7 +199,7 @@ private:
 				 * Et c'est elle qui cause la segfault (rotation droite ou gauche)
 				 */
 			} else if (z->pere() == z->grandParent()->filsDroit()) {
-				shared_ptr<node> y = z->grandParent()->filsGauche();
+				std::shared_ptr<node> y = z->grandParent()->filsGauche();
 				if (y->couleur == rouge) {
 					z->pere()->couleur = noir;
 					y->couleur = noir;
@@ -232,9 +223,9 @@ private:
 	 * Rotation gauche. La condition supposée de l'algorithme du livre est que x.right != T.nil.
 	 * @param [in]x Nœud à partir duquel la rotation se fait.
 	 */
-	void rotate_left(const shared_ptr<node>& x) {
+	void rotate_left(const std::shared_ptr<node>& x) {
 		if (x->filsDroit() != this->tnil) {
-			shared_ptr<node> y = x->filsDroit();
+			std::shared_ptr<node> y = x->filsDroit();
 			x->filsDroit() = y->filsGauche();
 			if (y->filsGauche() != this->tnil)
 				y->filsGauche()->pere() = x;
@@ -254,9 +245,9 @@ private:
 	 * Rotation droite. Même chose que la rotation gauche sauf que tous les mots "gauche" sont remplacés par droit, et vice-versa.
 	 * @param [in]x Nœud à partir duquel la rotation se fait.
 	 */
-	void rotate_right(const shared_ptr<node>& x) {
+	void rotate_right(const std::shared_ptr<node>& x) {
 		if (x->filsGauche() != this->tnil) {
-			shared_ptr<node> y = x->filsGauche();
+			std::shared_ptr<node> y = x->filsGauche();
 			x->filsGauche() = y->filsDroit();
 			if (y->filsDroit() != this->tnil)
 				y->filsDroit()->pere() = x;
@@ -277,7 +268,7 @@ private:
 	 * @param [in]u Donneur
 	 * @param [in]v Receveur
 	 */
-	void rb_transplant(const shared_ptr<node>& u, const shared_ptr<node>& v) {
+	void rb_transplant(const std::shared_ptr<node>& u, const std::shared_ptr<node>& v) {
 		if (u->pere() == this->tnil)
 			this->racine = v;
 		else if (u == u->pere()->filsGauche())
@@ -287,9 +278,13 @@ private:
 		v->pere() = u->pere();
 	}
 
-	void rb_delete_fixup(shared_ptr<node> x) {
+	/**
+	 * Réparation de l'arbre (si règles enfreintes) lors de la suppression d'un noeud.
+	 * @param [in]x Noeud à partir duquel la réparation se fait.
+	 */
+	void rb_delete_fixup(std::shared_ptr<node> x) {
+		std::shared_ptr<node> w;
 		while (x != this->racine && x->couleur == noir) {
-			shared_ptr<node> w;
 			if (x == x->pere()->filsGauche()) {
 				w = x->pere()->filsDroit();
 				if (w->couleur == rouge) {
@@ -315,7 +310,29 @@ private:
 					x = this->racine;
 				}
 			} else {
-
+				w = x->pere()->filsGauche();
+				if (w->couleur == rouge) {
+					w->couleur = noir;
+					x->pere()->couleur = rouge;
+					rotate_right(x->pere());
+					w = x->pere()->filsGauche();
+				}
+				if (w->filsGauche()->couleur == noir && w->filsDroit()->couleur == noir) {
+					w->couleur = rouge;
+					x = x->pere();
+				} else {
+					if (w->filsGauche()->couleur == noir) {
+						w->filsDroit()->couleur = noir;
+						w->couleur = rouge;
+						rotate_left(w);
+						w = x->pere()->filsGauche();
+					}
+					w->couleur = x->pere()->couleur;
+					x->pere()->couleur = noir;
+					w->filsGauche()->couleur = noir;
+					rotate_right(x->pere());
+					x = this->racine;
+				}
 			}
 		}
 		x->couleur = noir;
@@ -323,8 +340,8 @@ private:
 
 	key_compare keyComp;
 	value_compare valueComp;
-	shared_ptr<node> tnil{new node};
-	shared_ptr<node> racine{tnil};
+	std::shared_ptr<node> tnil{new node};
+	std::shared_ptr<node> racine{tnil};
 	size_type size{};
 /**
  * @publicsection
@@ -366,17 +383,17 @@ public:
 	 * Constructeur par déplacement
 	 * @param [in]s Set à déplacer (voler) les données
 	 */
-	Set(Set&& s) noexcept : size(move(s.size)), racine(move(s.racine)), tnil(move(s.tnil)),
-							keyComp(move(s.keyComp)),
-							valueComp(move(s.valueComp)) {}
+	Set(Set&& s) noexcept : size(std::move(s.size)), racine(std::move(s.racine)), tnil(std::move(s.tnil)),
+							keyComp(std::move(s.keyComp)),
+							valueComp(std::move(s.valueComp)) {}
 
 	/**
 	 * Constructeur par liste d'initialisation
 	 * @param [in] il liste d'initialisation
 	 * @param [in]comp comparateur
 	 */
-	Set(initializer_list<value_type> il, const key_compare& comp = key_compare()) : keyComp(comp),
-																					valueComp(comp) {}
+	Set(std::initializer_list<value_type> il, const key_compare& comp = key_compare()) : keyComp(comp),
+																						 valueComp(comp) {}
 
 	/**
 	 * Détruis l'objet, garbage collector grâce aux pointeurs intelligents.
@@ -388,7 +405,7 @@ public:
 	 * @return retourne un itérateur sur le début du Set.
 	 */
 	iterator begin() noexcept {
-		return iterator(*this);
+		return iterator(*this, tree_minimum(this->racine).get());
 	}
 
 	/**
@@ -421,7 +438,7 @@ public:
 	 * @return [out] Normalement retourne un itérateur sur l'élément
 	 */
 	iterator find(const reference key) {
-		shared_ptr<node> x = this->racine;
+		std::shared_ptr<node> x = this->racine;
 		while (x != this->tnil && ((keyComp(key, *x->key) || keyComp(*x->key, key)))) {
 			if (keyComp(key, *x->key))
 				x = x->filsGauche();
@@ -436,20 +453,20 @@ public:
 	 * @param [in]value
 	 * @return [out]Une paire avec l'itérateur sur le nœud et un booléen si l'opération a réussi ou non.
 	 */
-	pair<iterator, bool> insert(const reference value) {
+	std::pair<iterator, bool> insert(const reference value) {
 		if (find(value).currentNode != this->tnil) {
-			return pair<iterator, bool>(iterator(*this), false);
+			return std::pair<iterator, bool>(iterator(*this), false);
 		}
-		shared_ptr<node> n;
+		std::shared_ptr<node> n;
 		try {
-			n = shared_ptr<node>(new node(value, this->tnil));//Peut throw bad_alloc
-		} catch (const exception& e) {
-			cerr << e.what() << endl;
-			return pair<iterator, bool>(iterator(*this), false);
+			n = std::shared_ptr<node>(new node(value, this->tnil));//Peut throw bad_alloc
+		} catch (const std::exception& e) {
+			std::cerr << e.what() << std::endl;
+			return std::pair<iterator, bool>(iterator(*this), false);
 		}
 		insert_rd_tree(n);
 		++this->size;
-		return pair<iterator, bool>(iterator(*this, n.get()), true);
+		return std::pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
 
 	/**
@@ -457,20 +474,20 @@ public:
 	 * @param [in]value Rvalue à insérer dans l'arbre.
 	 * @return [out] Une pair avec first = iterator, second = true/false.
 	 */
-	pair<iterator, bool> insert(value_type&& value) {
+	std::pair<iterator, bool> insert(value_type&& value) {
 		if (find(value).currentNode != this->tnil) {
-			return pair<iterator, bool>(iterator(*this), false);
+			return std::pair<iterator, bool>(iterator(*this), false);
 		}
-		shared_ptr<node> n;
+		std::shared_ptr<node> n;
 		try {
-			n = shared_ptr<node>(new node(value, this->tnil));//Peut throw bad_alloc
-		} catch (const exception& e) {
-			cerr << e.what() << endl;
-			return pair<iterator, bool>(iterator(*this), false);
+			n = std::shared_ptr<node>(new node(value, this->tnil));//Peut throw bad_alloc
+		} catch (const std::exception& e) {
+			std::cerr << e.what() << std::endl;
+			return std::pair<iterator, bool>(iterator(*this), false);
 		}
 		insert_rd_tree(n);
 		++this->size;
-		return pair<iterator, bool>(iterator(*this, n.get()), true);
+		return std::pair<iterator, bool>(iterator(*this, n.get()), true);
 	}
 
 	/**
@@ -490,7 +507,7 @@ public:
 	 * Insertion à partir d'une liste de type value_type.
 	 * @param [in]il Liste à insérer dans l'arbre.
 	 */
-	void insert(initializer_list<value_type> il) {
+	void insert(std::initializer_list<value_type> il) {
 		for (auto&& item : il) {
 			this->insert(item);
 		}
@@ -503,7 +520,7 @@ public:
 	 * @todo Finir cette méthode ainsi que les fonctions qui lui sont nécessaires.
 	 */
 	size_type erase(const reference key) {
-		shared_ptr<node> z(find(key).currentNode), y(z), x;
+		std::shared_ptr<node> z(find(key).currentNode), y(z), x;
 		if (z != this->tnil) {
 			return 0;
 		}
@@ -532,6 +549,7 @@ public:
 		}
 		if (y_original == noir)
 			rb_delete_fixup(x);
+		--this->size;
 		return 1; //Si élément présent
 	}
 
@@ -548,7 +566,7 @@ public:
 	inline value_compare value_comp() const { return valueComp; }
 
 	/**
-	 * Assignation par copie.
+	 * Assignation par copie. Utilisation de l'itérateur.
 	 * @param [in]x Objet à copier.
 	 * @return [out] L'objet copié
 	 */
@@ -566,11 +584,11 @@ public:
 	 */
 	Set& operator=(Set&& x) noexcept {
 		if (this != &x) {
-			size = move(x.size);
-			racine = move(x.racine);
-			tnil = move(x.tnil);
-			keyComp = move(x.keyComp);
-			valueComp = move(x.valueComp);
+			size = std::move(x.size);
+			racine = std::move(x.racine);
+			tnil = std::move(x.tnil);
+			keyComp = std::move(x.keyComp);
+			valueComp = std::move(x.valueComp);
 			//x.valueComp = x.keyComp = nullptr; //Pas nécessaire.
 			//x.size = 0;
 		}
@@ -582,7 +600,7 @@ public:
 	 * @param [in]list Liste à assigner
 	 * @return [out] L'objet créé par la liste.
 	 */
-	Set& operator=(initializer_list<value_type> list) { //Not tested yet.
+	Set& operator=(std::initializer_list<value_type> list) { //Not tested yet.
 		for (auto&& item  : list) {
 			this->insert(item);
 		}
@@ -619,8 +637,8 @@ class SetIter {
 private:
 	Set<Key, Compare>& myset;
 	size_t size{};
-	shared_ptr<typename Set<Key, Compare>::node> currentNode;
-	shared_ptr<typename Set<Key, Compare>::node> lastNode;
+	std::shared_ptr<typename Set<Key, Compare>::node> currentNode;
+	std::shared_ptr<typename Set<Key, Compare>::node> lastNode;
 
 /**
  * @publicsection
