@@ -24,3 +24,23 @@ TEST_CASE("Test insertion", "[2][test insertion]") {
 	}//*/
 	REQUIRE(mySet.getSize() == stlSet.size());
 }
+
+TEST_CASE("Test iterator ++", "[3][test insertion iterateur ++]") {
+	Set<int> mySet;
+	std::set<int> stlSet;
+	const int max = 5;
+	std::default_random_engine generator(
+			static_cast<unsigned long>(std::chrono::system_clock::now().time_since_epoch().count()));
+	std::uniform_int_distribution<> distribution;
+	for (int i = 0; i < max; ++i) {
+		int number = distribution(generator);
+		mySet.insert(number);
+		stlSet.insert(number);
+	}//*/
+	std::set<int>::iterator iterstl;
+	Set<int>::iterator iterSet = mySet.begin();
+	for (iterstl = stlSet.begin();
+		 iterstl != stlSet.end() && iterSet != mySet.end(); ++iterstl, ++iterSet) {
+		REQUIRE((*iterSet) == (*iterstl));
+	}
+}
