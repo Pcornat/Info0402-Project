@@ -1,6 +1,7 @@
 #include <catch.hpp>
 #include <set>
 #include <chrono>
+#include <random>
 #include "Set.hpp"
 
 TEST_CASE("Test constructeur", "[1][constructeur test]") {

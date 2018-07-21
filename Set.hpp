@@ -14,12 +14,12 @@ class SetIter;
 
 /**
  * @class Set
- * Implémentation par un arbre binaire équilibré, ici rouge-noir.
- * @authors Florent Denef, Thomas Ducrot
+ * Implémentation par un arbre rouge-noir.
+ * @authors Florent Denef (no more Thomas Ducrot since 1st July of 2018).
  * @tparam Key Type de donnée présent dans set
  * @tparam Compare Type de la fonction de comparaison
- * @version 0.3
- * @todo Tout ce qui concerne la copie de l'objet. La suppression d'éléments. Le swap
+ * @version 0.9
+ * @todo Destruction de l'objet.
  */
 template<typename Key, typename Compare=std::less<Key>>
 class Set {
@@ -359,7 +359,9 @@ public:
 	 * @param [in]s Set compatible à copier.
 	 */
 	Set(const Set& s) : size(s.size), keyComp(s.keyComp), valueComp(s.valueComp) {
-
+		for (auto&& item : s) {
+			this->insert(item);
+		}
 	}
 
 	/**
@@ -378,38 +380,36 @@ public:
 	 * @param [in]comp comparateur
 	 */
 	Set(std::initializer_list<value_type> il, const key_compare& comp = key_compare()) : keyComp(comp),
-																						 valueComp(comp) {}
+																						 valueComp(comp) {
+		for (auto&& item : il) {
+			this->insert(item);
+		}
+	}
 
 	/**
 	 * Détruis l'objet.
 	 */
 	~Set() noexcept {
-		
+
 	}
 
 	/**
 	 * Itérateur de début du Set.
 	 * @return retourne un itérateur sur le début du Set.
 	 */
-	iterator begin() noexcept {
-		return iterator(*this, tree_minimum(this->racine));
-	}
+	iterator begin() noexcept { return iterator(*this, tree_minimum(this->racine)); }
 
 	/**
 	 * Itérateur de fin du Set.
 	 * @return [out] Itérateur sur le dernier nœud : le maximum.
 	 */
-	iterator end() noexcept {
-		return iterator(*this, this->tnil);
-	}
+	iterator end() noexcept { return iterator(*this, this->tnil); }
 
 	/**
 	 * Vérifie si le conteneur est vide.
 	 * @return [out] True si il est vide.
 	 */
-	bool empty() const noexcept {
-		return (this->size == 0);
-	}
+	bool empty() const noexcept { return (this->size == 0); }
 
 	/**
 	 * Getter de size
@@ -559,7 +559,9 @@ public:
 	 */
 	Set& operator=(const Set& x) {
 		if (this != &x) {
-
+			for (auto&& item : x) {
+				this->insert(item);
+			}
 		}
 		return *this;
 	}
@@ -605,11 +607,23 @@ public:
 
 		return true;
 	}
+
+	/**
+	 * Spécialise l'algorithme std::swap.
+	 * @param other Set compatible dont on peut swap les attributs.
+	 */
+	void swap(Set& other) {
+		std::swap(this->size, other.size);
+		std::swap(this->tnil, other.tnil);
+		std::swap(this->racine, other.racine);
+		std::swap(this->keyComp, other.keyComp);
+		std::swap(this->valueComp, other.valueComp);
+	}
 };
 
 /**
  * Itérateur de Set.
- * @authors Florent Denef, Thomas Ducrot
+ * @authors Florent Denef (no more Thomas Ducrot since 1st July 2018)
  * @tparam [in]Key type de clé
  * @tparam [in]Compare foncteur de comparaison
  * @todo L'opérateur d'avancée (++)
